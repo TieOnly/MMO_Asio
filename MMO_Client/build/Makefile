@@ -1,0 +1,2 @@
+default:
+	g++ ../src/*.cpp ../../MMO_Src/src/*.cpp -o ../../Test/CLIENT.exe -Wall -Wno-missing-braces -I ../include -I ../../MMO_Src/include -I ../../MMO_Src/pch -I ../../MMO_Src/network -L ../../MMO_Src/lib -lraylib -lopengl32 -lgdi32 -lwinmm -lws2_32 -lwsock32
