@@ -44,6 +44,7 @@ void Entity::ProcessInput()
         }
     }
 }
+void Entity::SetState( const StateEvent& state ) { curState = state; }
 const RectF& Entity::GetDest() const { return dest; }
 const Entity::StateEvent& Entity::GetStateEvent() const
 { 
@@ -97,8 +98,7 @@ void Entity::DrawTitle( const std::string& title ) const
 //     else originFirst.x = -1.0f;
     
 // }
-// void Entity::SetDest()
-// {}
+void Entity::SetDest( const RectF& new_dest ) { dest = new_dest; }
 // void Entity::SetOffset()
 // {}
 // void Entity::SetPadding()

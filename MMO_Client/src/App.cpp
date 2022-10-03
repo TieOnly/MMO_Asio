@@ -1,3 +1,6 @@
+#include "../../MMO_Src/pch/raylibCpp.h"
+#include "../../MMO_Src/network/tie_net.h"
+
 #include "App.h"
 
 App::App(const int fps)
@@ -155,7 +158,6 @@ void App::TwoPlayerGame()
     if( !InComing().empty() )
     {
         auto msg = InComing().pop_front().msg;
-        std::cout << "Size MI Cl: " << InComing().amount() << std::endl;
 
         switch (msg.header.id)
         {
@@ -164,7 +166,6 @@ void App::TwoPlayerGame()
             std::cout << "DuyPro cho phep ban truy cap!" << std::endl;            
             tie::net::message<GameMsg> msg;
             msg.header.id = GameMsg::Client_RegisterWithServer;
-            descPlayer.avatar = 0;
             msg << descPlayer;
             Send( msg );
         } break;
@@ -196,6 +197,13 @@ void App::TwoPlayerGame()
             sPlayerDescription desc;
             msg >> desc;
             mapObjects.insert_or_assign( desc.nUniqueID, desc );
+            for( auto& p : mapObjects )
+            {
+                if( p.second.chat != nullptr )
+                {
+                    std::cout << p.second.name << ": " << p.second.chat << std::endl;
+                }
+            }
         } break;
 
         default: break;
@@ -203,12 +211,29 @@ void App::TwoPlayerGame()
     }
 
     //Update Game
+    if( !gui.GetGameMod().input_value.empty() )
+    {
+        descPlayer.isUpdateWithEveryOne = true;
+
+        // if( (int)gui.GetGameMod().input_value.size() <= 20 )
+        // {
+        //     std::memcpy( descPlayer.name, &gui.GetGameMod().input_value, sizeof(gui.GetGameMod().input_value.size()) );
+        // }
+        gui.ClearInputValue();
+    }
     if( IsKeyPressed(KEY_A) )
     {
         descPlayer.isUpdateWithEveryOne = true;
-        mapObjects[nPlayerID].countPress++;
-    }
 
+        mapObjects[nPlayerID].countPress++;
+        std::string text = "Player";
+        for( int i = 0; i < (int)text.size(); i++ )
+        {
+            mapObjects[nPlayerID].name[i] = text[i];
+        }
+        std::string text_1 = "Hello There";
+        std::memcpy( mapObjects[nPlayerID].chat, text_1.c_str(), text.size() );
+    }
 
     //Update Player With EveryOne
     if( descPlayer.isUpdateWithEveryOne )
@@ -217,6 +242,7 @@ void App::TwoPlayerGame()
         msg.header.id = GameMsg::Game_UpdatePlayer;
         msg << mapObjects[nPlayerID];
         Send( msg );
+        // mapObjects[nPlayerID].chat = nullptr;
     }
 }
 void App::ResetPlayer()
@@ -224,7 +250,6 @@ void App::ResetPlayer()
     mapObjects.clear();
     bWaitingForConnect = false;
     descPlayer.nUniqueID = 0;
-	descPlayer.avatar = 0;
 	descPlayer.sRPS = sPlayerDescription::StateRPS::GiveUp;
 	descPlayer.isThisTurn = false;
 	descPlayer.isFuckUp = false;
@@ -253,6 +278,7 @@ void App::Draw()
         else if( gui.GetGameMod().amount_player == GUI::Btn_SeqID::Two_Player )
         {
             int i = 1;
+            rayCpp::DrawString( "List Player", Vec2{20.0f, 20.0f}, 26, WHITE );
             for( auto it = mapObjects.begin(); it != mapObjects.end(); it++, i++ )
             {
                 Color c = PINK;
@@ -265,7 +291,7 @@ void App::Draw()
                 
                 rayCpp::DrawString( 
                     text,
-                    Vec2{ 20.0f, i*50.0f }, 20, c
+                    Vec2{ 20.0f, 50.0f + i*30.0f }, 20, c
                 );
             }
         }

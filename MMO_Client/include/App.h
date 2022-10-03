@@ -1,10 +1,8 @@
 #pragma once
-#include "../../MMO_Src/pch/raylibCpp.h"
 //========SOME NOTE========//
 //Confict: In wingdi.h, Ignore WINAPI HDC Rectangle(), cause previous declaration in raylib.h
 //Confict: In wingdi.h, Ignore WINAPI CloseWindow (HWND hWnd), we just use the sane API in raylib.h
 //Confict: In wingdi.h, Ignore WINAPI ShowCursor(WINBOOL bShow), we just use the sane API in raylib.h
-#include "../../MMO_Src/network/tie_net.h"
 //=========================//
 #include "GUI.h"
 #include "MineField.h"
@@ -38,7 +36,6 @@ private:
 private:
     std::unordered_map< uint32_t, sPlayerDescription > mapObjects;
     uint32_t nPlayerID = 0;
-    bool isHost = false;
     sPlayerDescription descPlayer;
 
     bool bWaitingForConnect = false;

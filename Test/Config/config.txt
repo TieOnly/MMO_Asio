@@ -1,0 +1,33 @@
+[Button_Amount]
+8
+
+[Button_Titles]
+Offline
+Online
+Small
+Medium
+Large
+Change Name
+Chat
+Back
+#
+
+[Button_Dests]
+100 300 100 150  
+100 300 160 210  
+100 300 100 150  
+100 300 160 210  
+100 300 220 270  
+20 160 320 360  
+20 120 380 420  
+20 100 440 480  
+#
+
+[Input_Amount]
+1
+
+[Input_Dests]
+120 220 440 470  
+#
+
+//

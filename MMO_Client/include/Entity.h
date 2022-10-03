@@ -15,6 +15,7 @@ public:
     Entity( const RectF& dest );
     void ProcessInput();
     
+    void SetState( const StateEvent& state );
     bool IsCover( const Vec2& pos ) const;
     const RectF& GetDest() const;
     const StateEvent& GetStateEvent() const;
@@ -27,7 +28,7 @@ public:
     void DrawSurfInside( const Texture2D* surface ) const;
     void DrawTitle( const std::string& title ) const;
 
-    // void SetDest();
+    void SetDest( const RectF& dest );
     // void SetOffset();
     // void SetPadding();
     // void SetFontSize();

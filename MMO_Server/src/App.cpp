@@ -100,6 +100,11 @@ protected:
             mapPlayerRoster[desc.nUniqueID] = desc;
         } break;
         
+        case GameMsg::Game_MesStr:
+        {
+            
+        } break;
+
         default: break;
         }
 

@@ -35,7 +35,7 @@ namespace tie
             friend message<T>& operator << (message<T>& msg, const DataType& data)
             {
                 static_assert(std::is_standard_layout<DataType>::value, "Data is too complex to extract");
-
+                
                 size_t i = msg.body.size();
 
                 msg.body.resize( i + sizeof(DataType) );
@@ -52,7 +52,7 @@ namespace tie
             friend message<T>& operator >> (message<T>& msg, DataType& data)
             {
                 static_assert(std::is_standard_layout<DataType>::value, "Data is too complex to extract");
-
+                
                 size_t i = msg.body.size() - sizeof(DataType);
 
                 std::memcpy( &data, msg.body.data() + i, sizeof(DataType) );

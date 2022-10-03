@@ -19,7 +19,8 @@ enum class GameMsg : uint32_t
 
 	Game_AddPlayer,
 	Game_RemovePlayer,
-	Game_UpdatePlayer
+	Game_UpdatePlayer,
+	Game_MesStr
 };
 
 struct sPlayerDescription
@@ -33,7 +34,8 @@ struct sPlayerDescription
 	};
 
 	uint32_t nUniqueID = 0;
-	uint32_t avatar = 0;
+	char name[100];
+	char chat[100];
 	StateRPS sRPS = StateRPS::GiveUp;
 	bool isThisTurn = false;
 	bool isFuckUp = false;

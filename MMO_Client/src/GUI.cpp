@@ -4,7 +4,7 @@
 void GUI::LoadAsset()
 {
     data.NewBuff();
-    if( data.LoadFromFile( "../MMO_Client/assets/config.txt" ) )
+    if( data.LoadFromFile( "Config/config.txt" ) )
     {
         std::stringstream buff( data.GetBuff() );
         std::string token;
@@ -36,6 +36,25 @@ void GUI::LoadAsset()
                     btn_dests.push_back( RectF{ angle_rect[0], angle_rect[1], angle_rect[2], angle_rect[3] } );
                 }
             }
+            else if( token == "[Input_Amount]" )
+            {
+                std::getline( buff, token );
+                input_amount = std::stoi(token);
+            }
+            else if( token == "[Input_Dests]" )
+            {
+                while ( std::getline( buff, token ) && token != "#" )
+                {
+                    std::stringstream buff_c(token);
+                    std::string token_c;
+                    std::vector<float> angle_rect;
+                    while ( std::getline( buff_c, token_c, ' ' ) && (token_c != "") )
+                    {
+                        angle_rect.push_back(std::stof(token_c));
+                    }
+                    input_dests.push_back( RectF{ angle_rect[0], angle_rect[1], angle_rect[2], angle_rect[3] } );
+                }
+            }
         }
         std::cout << "[LoadData]: Success!" << std::endl; 
     }
@@ -52,6 +71,11 @@ void GUI::LoadAsset()
     {
         buttons.emplace_back( Button{ btn_dests[i], btn_titles[i] } );
     }
+    for( int i = 0; i < input_amount; i++ )
+    {
+        inputs.emplace_back( Input{ input_dests[i] } );
+        inputs.back().SetState(Input::StateEvent::Disable);
+    }
 }
 void GUI::Update()
 {
@@ -67,7 +91,6 @@ void GUI::Update()
         }
         else if( buttons[(int)Btn_SeqID::Two_Player].GetStateEvent() == Entity::StateEvent::Clicked )
         {
-            SetLayer( Layer::ChoseSize );
             gameMod.amount_player = GUI::Btn_SeqID::Two_Player;
         }
     }
@@ -93,16 +116,61 @@ void GUI::Update()
         
         if( buttons[(int)Btn_SeqID::Back].GetStateEvent() == Entity::StateEvent::Clicked )
         {
+            ResetGameMode();
             SetLayer( Layer::ChoseMode );
         }
     }
     else if( GetLayer() == Layer::GameMode )
-    {
-        buttons[(int)Btn_SeqID::Back].Update();
-
-        if( buttons[(int)Btn_SeqID::Back].GetStateEvent() == Entity::StateEvent::Clicked )
+    {   
+        if( gameMod.amount_player == GUI::Btn_SeqID::One_Player )
         {
-            gameMod.isReset = true;
+
+        }
+        else if( gameMod.amount_player == GUI::Btn_SeqID::Two_Player )
+        {
+            buttons[(int)Btn_SeqID::Change_Name].Update();
+            buttons[(int)Btn_SeqID::Chat].Update();
+            buttons[(int)Btn_SeqID::Back].Update();
+            inputs[(int)Input_SeqID::Line_1].Update();
+
+            if( buttons[(int)Btn_SeqID::Change_Name].GetStateEvent() == Entity::StateEvent::Clicked )
+            {
+                Input& i = inputs[(int)Input_SeqID::Line_1];
+                if( i.GetStateEvent() == Input::StateEvent::Disable ) i.ClearValue();
+                const RectF& pDest = buttons[(int)Btn_SeqID::Change_Name].GetDest();
+                i.SetDest( 
+                    pDest
+                    + RectF{ pDest.width + 20.0f, pDest.width + 20.0f, 0.0f, 0.0f } 
+                );
+                i.SetState(Input::StateEvent::Normal);
+                i.Forcus();
+            }
+            else if( buttons[(int)Btn_SeqID::Chat].GetStateEvent() == Entity::StateEvent::Clicked )
+            {
+                Input& i = inputs[(int)Input_SeqID::Line_1];
+                const RectF& pDest = buttons[(int)Btn_SeqID::Chat].GetDest();
+                i.SetDest( 
+                    pDest
+                    + RectF{ pDest.width + 20.0f, pDest.width + 20.0f, 0.0f, 0.0f } 
+                );
+                i.SetState(Input::StateEvent::Normal);
+                i.Forcus();
+            }
+
+            if( inputs[(int)Input_SeqID::Line_1].GetStateEvent() != Entity::StateEvent::Disable )
+            {
+                if( IsKeyPressed( KEY_ENTER ) || IsKeyPressed( KEY_KP_ENTER ) )
+                {
+                    inputs[(int)Input_SeqID::Line_1].ClearValue();
+                    inputs[(int)Input_SeqID::Line_1].SetState(Entity::StateEvent::Disable);
+                    gameMod.input_value = inputs[(int)Input_SeqID::Line_1].GetValue();
+                }
+            }
+            if( buttons[(int)Btn_SeqID::Back].GetStateEvent() == Entity::StateEvent::Clicked )
+            {
+                inputs[(int)Input_SeqID::Line_1].SetState(Input::StateEvent::Disable);
+                gameMod.isReset = true;
+            }
         }
     }
 }
@@ -111,6 +179,10 @@ void GUI::ResetGameMode()
     gameMod.amount_player = GUI::Btn_SeqID::Non;
     gameMod.game_size = GUI::Btn_SeqID::Non;
     gameMod.isReset = false;
+}
+void GUI::ClearInputValue()
+{
+    gameMod.input_value.clear();
 }
 void GUI::Draw() const
 {
@@ -128,10 +200,21 @@ void GUI::Draw() const
     }
     else if( GetLayer() == Layer::GameMode )
     {
+        if( gameMod.amount_player == GUI::Btn_SeqID::One_Player )
+        {
+
+        }
+        else if( gameMod.amount_player == GUI::Btn_SeqID::Two_Player )
+        {
+            buttons[(int)Btn_SeqID::Change_Name].Draw();
+            buttons[(int)Btn_SeqID::Chat].Draw();
+            inputs[(int)Input_SeqID::Line_1].Draw();
+        }
+        
         buttons[(int)Btn_SeqID::Back].Draw();
     }
 }
-///////////////////////////////////////////////////////////////////////////
+//==================BUTTONS==================//
 GUI::Button::Button( const RectF& _dest, const std::string& _title )
     :
     Entity( _dest ),
@@ -148,4 +231,100 @@ void GUI::Button::Draw() const
     DrawFill( PINK );
     DrawOutline( RED );
     rayCpp::DrawStrCenter( title, dest, fontSize, BLACK );
+}
+//==================INPUT==================//
+GUI::Input::Input( const RectF& dest )
+    :
+    Entity( dest )
+{
+    measure = int( (dest.width - 2*padding) / (fontSize - 8.0f) );
+}
+void GUI::Input::PutData()
+{
+    int c = GetCharPressed();
+    if( c != 0 )
+    {
+        value.push_back( c );
+        std::cout<< c << std::endl;
+    }
+    
+    static float counterErase = 0.0f;
+    static bool isErasing = false;
+    if( value.size() > 0 )
+    {
+        if( IsKeyPressed( KEY_BACKSPACE ) ) value.pop_back();
+        //Erasing
+        if( IsKeyDown( KEY_BACKSPACE ) )
+        {
+            counterErase += 0.016f;
+            if( counterErase >  0.8f) isErasing = true;
+        }
+        else if( IsKeyUp( KEY_BACKSPACE ) ) 
+        {
+            isErasing = false;
+            counterErase = 0.0f;
+        }
+        if( isErasing) value.pop_back();
+    }
+
+    UpdateValueAndCursor();
+}
+void GUI::Input::UpdateValueAndCursor()
+{   
+    int pos_c = value.size() - measure;
+    if( pos_c < 0 )
+    {
+        draw_value = value;
+    }
+    else
+    {
+        draw_value.clear();
+        for( size_t i = pos_c; i < value.size(); i++ )
+        {
+            draw_value += value[i];
+        }
+    }
+    pos_cursor.x = dest.left + padding + (float)MeasureText(draw_value.c_str(), fontSize);
+    pos_cursor.y = dest.top + padding;
+}
+void GUI::Input::Update()
+{
+    Entity::ProcessInput();
+    
+    if( curState == StateEvent::Clicked ) isTyping = true;
+    else if( curState != StateEvent::Hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
+        isTyping = false;
+    
+    if( isTyping )
+    {
+        counterBlink += 0.016f;
+        if( counterBlink > duraBlink )
+        {
+            counterBlink = 0;
+            blink = !blink;
+        }
+        PutData();
+    }
+}
+const std::string& GUI::Input::GetValue() const { return value; }
+void GUI::Input::Forcus() { isTyping = true; }
+void GUI::Input::ClearValue() { value.clear(); draw_value.clear(); }
+void GUI::Input::Draw() const
+{
+    if( curState != StateEvent::Disable )
+    {
+        if( isTyping )
+        {
+            DrawFill( WHITE );
+            if( blink ) 
+                rayCpp::DrawRectFill( RectF{ pos_cursor, 2.0f, dest.height - 2*padding }, GRAY );
+            DrawOutline( SKYBLUE );
+            rayCpp::DrawString( draw_value, dest.topleft + padding, fontSize, GRAY );
+        }
+        else
+        {
+            DrawFill( RAYWHITE );
+            DrawOutline( GRAY );
+        }
+    }
 }
