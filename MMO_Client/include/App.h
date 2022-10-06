@@ -4,6 +4,7 @@
 //Confict: In wingdi.h, Ignore WINAPI CloseWindow (HWND hWnd), we just use the sane API in raylib.h
 //Confict: In wingdi.h, Ignore WINAPI ShowCursor(WINBOOL bShow), we just use the sane API in raylib.h
 //=========================//
+#include "Utils.h"
 #include "GUI.h"
 #include "MineField.h"
 
@@ -16,6 +17,7 @@ public:
     App& operator = (const App& another) = delete;
     bool AppShouldClose() const;
     void Tick();
+
 private:
     void Update();
     void Draw();
@@ -35,8 +37,10 @@ private:
     MineField* pField = nullptr;
 private:
     std::unordered_map< uint32_t, sPlayerDescription > mapObjects;
+    std::unordered_map< uint32_t, sMapObjDesc > mapDescObjs;
     uint32_t nPlayerID = 0;
     sPlayerDescription descPlayer;
 
     bool bWaitingForConnect = false;
 };
+

@@ -54,13 +54,15 @@ namespace tie
                 static_assert(std::is_standard_layout<DataType>::value, "Data is too complex to extract");
                 
                 size_t i = msg.body.size() - sizeof(DataType);
+                if( (int)i >= 0 )
+                {
+                    std::memcpy( &data, msg.body.data() + i, sizeof(DataType) );
 
-                std::memcpy( &data, msg.body.data() + i, sizeof(DataType) );
+                    msg.body.resize( i );
 
-                msg.body.resize( i );
-
-                msg.header.size = msg.size();
-
+                    msg.header.size = msg.size();
+                }
+                
                 return msg;
             }
         };

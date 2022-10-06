@@ -181,6 +181,15 @@ void App::TwoPlayerGame()
             sPlayerDescription desc;
             msg >> desc;
             mapObjects.insert_or_assign( desc.nUniqueID, desc );
+            if( mapObjects[nPlayerID].isHost ) std::cout << "Ban la Host" << std::endl;
+            
+            sMapObjDesc mo_desc;
+            mo_desc.dest = RectF{ 
+                Vec2{ 20.0f, 50.0f + (int)mapObjects.size()*30.0f }, 
+                (float)MeasureText( desc.name, 20 ), 20.0f
+            };
+            mo_desc.pos_chat = Vec2{ mo_desc.dest.right + 60.0f,mo_desc.dest.top };
+            mapDescObjs.insert_or_assign( desc.nUniqueID, mo_desc );
 
             if( desc.nUniqueID == nPlayerID ) bWaitingForConnect = false;
         } break;
@@ -190,6 +199,7 @@ void App::TwoPlayerGame()
             uint32_t nRemovalID = 0;
             msg >> nRemovalID;
             mapObjects.erase( nRemovalID );
+            mapDescObjs.erase( nRemovalID );
         } break;
 
         case GameMsg::Game_UpdatePlayer:
@@ -197,13 +207,41 @@ void App::TwoPlayerGame()
             sPlayerDescription desc;
             msg >> desc;
             mapObjects.insert_or_assign( desc.nUniqueID, desc );
-            for( auto& p : mapObjects )
+            
+            std::cout 
+                << mapObjects[desc.nUniqueID].name << ": Update! " <<
+            std::endl;
+        } break;
+
+        case GameMsg::PR_SendChatTyping:
+        {
+            uint32_t nID; msg >> nID;
+            mapDescObjs[nID].isTyping = true;
+        } break;
+
+        case GameMsg::PR_SendChat:
+        {
+            sPlayerText pMes;
+            msg >> pMes;
+            mapDescObjs[pMes.nUniqueID].timerChat = pMes.timerChat;
+            mapDescObjs[pMes.nUniqueID].isTyping = false;
+            tie::make::MakeArrChar( mapDescObjs[pMes.nUniqueID].chat, tie::def::ml_chat, pMes.chat );
+            std::cout << mapObjects[pMes.nUniqueID].name << ": " << pMes.chat << std::endl;
+        } break;
+
+        case GameMsg::Server_RemoveHost:
+        {
+            if( !mapObjects[nPlayerID].isHost )
             {
-                if( p.second.chat != nullptr )
-                {
-                    std::cout << p.second.name << ": " << p.second.chat << std::endl;
-                }
+                std::cout << "Host is not exist" << std::endl;
             }
+            else std::cout << "You out and You are host =((" << std::endl;
+            //Reset To ChoseMode
+            Disconnect();
+            gui.ResetGameMode();
+            ResetPlayer();
+            GUI::SetLayer( GUI::Layer::ChoseMode );
+            return;
         } break;
 
         default: break;
@@ -213,26 +251,40 @@ void App::TwoPlayerGame()
     //Update Game
     if( !gui.GetGameMod().input_value.empty() )
     {
-        descPlayer.isUpdateWithEveryOne = true;
-
-        // if( (int)gui.GetGameMod().input_value.size() <= 20 )
-        // {
-        //     std::memcpy( descPlayer.name, &gui.GetGameMod().input_value, sizeof(gui.GetGameMod().input_value.size()) );
-        // }
+        if( gui.GetGameMod().input_owner == GUI::Btn_SeqID::Change_Name )
+        {
+            tie::make::MakeArrChar( mapObjects[nPlayerID].name, tie::def::ml_name,
+                gui.GetGameMod().input_value
+            );
+            descPlayer.isUpdateWithEveryOne = true;
+        }
+        else if( gui.GetGameMod().input_owner == GUI::Btn_SeqID::Chat )
+        {
+            tie::make::MakeArrChar( mapDescObjs[nPlayerID].chat, tie::def::ml_chat,
+                gui.GetGameMod().input_value 
+            );
+            mapDescObjs[nPlayerID].timerChat = 6.0f;
+            Send( tie::make::MM_PR_Chat( nPlayerID, gui.GetGameMod().input_value ) );
+        }
         gui.ClearInputValue();
     }
-    if( IsKeyPressed(KEY_A) )
+    else if( gui.GetGameMod().input_owner == GUI::Btn_SeqID::Chat )
+    {
+        if( gui.GetGameMod().isTypeChating && mapDescObjs[nPlayerID].timerChat <= 0.0f )
+        {
+            Send( tie::make::MM_PR_ChatTyping( nPlayerID ) );
+        }
+    }
+
+    for( auto it = mapDescObjs.begin(); it != mapDescObjs.end(); it++ )
+    {
+        //Update TimerChat
+        if( it->second.timerChat > 0.0f ) it->second.timerChat -= 0.01666f;
+    }
+
+    if( IsKeyPressed( KEY_UP ) )
     {
         descPlayer.isUpdateWithEveryOne = true;
-
-        mapObjects[nPlayerID].countPress++;
-        std::string text = "Player";
-        for( int i = 0; i < (int)text.size(); i++ )
-        {
-            mapObjects[nPlayerID].name[i] = text[i];
-        }
-        std::string text_1 = "Hello There";
-        std::memcpy( mapObjects[nPlayerID].chat, text_1.c_str(), text.size() );
     }
 
     //Update Player With EveryOne
@@ -242,66 +294,19 @@ void App::TwoPlayerGame()
         msg.header.id = GameMsg::Game_UpdatePlayer;
         msg << mapObjects[nPlayerID];
         Send( msg );
-        // mapObjects[nPlayerID].chat = nullptr;
     }
 }
 void App::ResetPlayer()
 {   
     mapObjects.clear();
+    mapDescObjs.clear();
     bWaitingForConnect = false;
     descPlayer.nUniqueID = 0;
-	descPlayer.sRPS = sPlayerDescription::StateRPS::GiveUp;
+	descPlayer.stateRPS = sPlayerDescription::StateRPS::GiveUp;
+    descPlayer.isHost = false;
 	descPlayer.isThisTurn = false;
 	descPlayer.isFuckUp = false;
 	descPlayer.isWinner = false;
 	descPlayer.countPress = 0;
 }   
 //=============================================================//
-void App::Draw()
-{
-    ClearBackground(BLACK);
-    gui.Draw();
-    if( GUI::GetLayer() == GUI::Layer::GameMode )
-    {
-        if( gui.GetGameMod().amount_player == GUI::Btn_SeqID::One_Player )
-        {
-            if( pField != nullptr ) pField->Draw();
-            if(IsGameOver)
-            {
-                rayCpp::DrawStrCenter( "GAME OVER", rayCpp::GetScreenRect(), 50, ORANGE );
-            }
-            else if(IsWin)
-            {
-                rayCpp::DrawStrCenter( "WIN", rayCpp::GetScreenRect(), 50, ORANGE );
-            }
-        }
-        else if( gui.GetGameMod().amount_player == GUI::Btn_SeqID::Two_Player )
-        {
-            int i = 1;
-            rayCpp::DrawString( "List Player", Vec2{20.0f, 20.0f}, 26, WHITE );
-            for( auto it = mapObjects.begin(); it != mapObjects.end(); it++, i++ )
-            {
-                Color c = PINK;
-                if( it->second.nUniqueID == nPlayerID ) c = RED;
-                
-                std::string text = 
-                    std::to_string(it->second.nUniqueID) + 
-                    ": " +
-                    std::to_string(it->second.countPress);
-                
-                rayCpp::DrawString( 
-                    text,
-                    Vec2{ 20.0f, 50.0f + i*30.0f }, 20, c
-                );
-            }
-        }
-    }
-    if( bWaitingForConnect )
-    {
-        rayCpp::DrawString( 
-            "Conneting...", 
-            Vec2{settings::screenW - 200.0f, 50.0f},
-            20, WHITE
-        );
-    }
-}

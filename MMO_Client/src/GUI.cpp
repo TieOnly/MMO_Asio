@@ -133,39 +133,42 @@ void GUI::Update()
             buttons[(int)Btn_SeqID::Back].Update();
             inputs[(int)Input_SeqID::Line_1].Update();
 
+            //Button Funtion
             if( buttons[(int)Btn_SeqID::Change_Name].GetStateEvent() == Entity::StateEvent::Clicked )
             {
                 Input& i = inputs[(int)Input_SeqID::Line_1];
-                if( i.GetStateEvent() == Input::StateEvent::Disable ) i.ClearValue();
-                const RectF& pDest = buttons[(int)Btn_SeqID::Change_Name].GetDest();
-                i.SetDest( 
-                    pDest
-                    + RectF{ pDest.width + 20.0f, pDest.width + 20.0f, 0.0f, 0.0f } 
-                );
-                i.SetState(Input::StateEvent::Normal);
-                i.Forcus();
+                if( i.GetStateEvent() == Input::StateEvent::Disable )
+                {
+                    OnEnableInput( Btn_SeqID::Change_Name, i, 40.0f );
+                }
+                else OnDisableInput( Btn_SeqID::Change_Name, i );
             }
             else if( buttons[(int)Btn_SeqID::Chat].GetStateEvent() == Entity::StateEvent::Clicked )
             {
                 Input& i = inputs[(int)Input_SeqID::Line_1];
-                const RectF& pDest = buttons[(int)Btn_SeqID::Chat].GetDest();
-                i.SetDest( 
-                    pDest
-                    + RectF{ pDest.width + 20.0f, pDest.width + 20.0f, 0.0f, 0.0f } 
-                );
-                i.SetState(Input::StateEvent::Normal);
-                i.Forcus();
+                if( i.GetStateEvent() == Input::StateEvent::Disable )
+                {
+                    OnEnableInput( Btn_SeqID::Chat, i, 150.0f );
+                }
+                else OnDisableInput( Btn_SeqID::Chat, i );
             }
 
+            //Input
             if( inputs[(int)Input_SeqID::Line_1].GetStateEvent() != Entity::StateEvent::Disable )
             {
                 if( IsKeyPressed( KEY_ENTER ) || IsKeyPressed( KEY_KP_ENTER ) )
                 {
-                    inputs[(int)Input_SeqID::Line_1].ClearValue();
-                    inputs[(int)Input_SeqID::Line_1].SetState(Entity::StateEvent::Disable);
                     gameMod.input_value = inputs[(int)Input_SeqID::Line_1].GetValue();
+                    inputs[(int)Input_SeqID::Line_1].SetState(Entity::StateEvent::Disable);
+                    inputs[(int)Input_SeqID::Line_1].ClearValue();
+                    gameMod.isTypeChating = false;
                 }
+                else if( gameMod.input_owner == Btn_SeqID::Chat ) gameMod.isTypeChating = true;
+                else gameMod.isTypeChating = false;
             }
+            else gameMod.isTypeChating = false;
+
+            //Button Back
             if( buttons[(int)Btn_SeqID::Back].GetStateEvent() == Entity::StateEvent::Clicked )
             {
                 inputs[(int)Input_SeqID::Line_1].SetState(Input::StateEvent::Disable);
@@ -178,11 +181,28 @@ void GUI::ResetGameMode()
 {
     gameMod.amount_player = GUI::Btn_SeqID::Non;
     gameMod.game_size = GUI::Btn_SeqID::Non;
+    gameMod.input_owner = Btn_SeqID::Non;
+    gameMod.input_value.clear();
     gameMod.isReset = false;
 }
 void GUI::ClearInputValue()
 {
     gameMod.input_value.clear();
+}
+void GUI::OnEnableInput( const GUI::Btn_SeqID& owner, GUI::Input& i, const float lenght )
+{
+    gameMod.input_owner = owner;
+    const RectF& pDest = buttons[(int)owner].GetDest();
+    i.SetDest( 
+        pDest
+        + RectF{ pDest.width + 20.0f, pDest.width + 20.0f + lenght, 0.0f, 0.0f } 
+    );
+    i.SetState(Input::StateEvent::Normal);
+    i.isTyping = true;
+}
+void GUI::OnDisableInput( const GUI::Btn_SeqID& owner, GUI::Input& input )
+{
+    input.OnDisable( gameMod );
 }
 void GUI::Draw() const
 {
@@ -223,7 +243,7 @@ GUI::Button::Button( const RectF& _dest, const std::string& _title )
 void GUI::Button::Update()
 {
     ProcessInput();
-    if( GetStateEvent() == Entity::StateEvent::Hover ) lineThick = 4.0f;
+    if( GetStateEvent() == Entity::StateEvent::Hover || isHighLight ) lineThick = 4.0f;
     else if ( GetStateEvent() == Entity::StateEvent::Normal ) lineThick = 2.0f;
 }
 void GUI::Button::Draw() const
@@ -245,7 +265,6 @@ void GUI::Input::PutData()
     if( c != 0 )
     {
         value.push_back( c );
-        std::cout<< c << std::endl;
     }
     
     static float counterErase = 0.0f;
@@ -284,31 +303,53 @@ void GUI::Input::UpdateValueAndCursor()
             draw_value += value[i];
         }
     }
+    //Cursor pos and blink
     pos_cursor.x = dest.left + padding + (float)MeasureText(draw_value.c_str(), fontSize);
     pos_cursor.y = dest.top + padding;
+
+    counterBlink += 0.016f;
+    if( counterBlink > duraBlink )
+    {
+        counterBlink = 0;
+        blink = !blink;
+    }
 }
 void GUI::Input::Update()
 {
-    Entity::ProcessInput();
-    
-    if( curState == StateEvent::Clicked ) isTyping = true;
-    else if( curState != StateEvent::Hover && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
-        isTyping = false;
-    
-    if( isTyping )
+    if( curState != StateEvent::Disable )
     {
-        counterBlink += 0.016f;
-        if( counterBlink > duraBlink )
+        Entity::ProcessInput();
+        
+        if( curState == StateEvent::Clicked ) isTyping = true;
+        else if( curState == StateEvent::Normal && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) 
         {
-            counterBlink = 0;
-            blink = !blink;
+            OnDisable();
         }
-        PutData();
+        
+        if( isTyping ) PutData();
     }
 }
 const std::string& GUI::Input::GetValue() const { return value; }
-void GUI::Input::Forcus() { isTyping = true; }
+
 void GUI::Input::ClearValue() { value.clear(); draw_value.clear(); }
+void GUI::Input::OnDisable( GUI::GameMod& gameMod )
+{
+    isTyping = false;
+    ClearValue();
+    gameMod.input_owner = Btn_SeqID::Non;
+    curState = StateEvent::Disable;
+}
+void GUI::Input::OnDisable()
+{
+    isTyping = false;
+    ClearValue();
+    SetState( Input::StateEvent::Disable );
+}
+void GUI::Input::SetDest( const RectF& dest )
+{
+    Entity::SetDest( dest );
+    measure = int( (dest.width - 2*padding) / (fontSize - 8.0f) );
+}
 void GUI::Input::Draw() const
 {
     if( curState != StateEvent::Disable )

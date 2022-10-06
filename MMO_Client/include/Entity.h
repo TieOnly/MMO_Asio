@@ -28,7 +28,7 @@ public:
     void DrawSurfInside( const Texture2D* surface ) const;
     void DrawTitle( const std::string& title ) const;
 
-    void SetDest( const RectF& dest );
+    virtual void SetDest( const RectF& dest );
     // void SetOffset();
     // void SetPadding();
     // void SetFontSize();

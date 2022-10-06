@@ -85,6 +85,7 @@ namespace tie
                 }
                 else
                 {
+                    std::cout << "Message connect fail (id): " << client->GetId() << std::endl;
                     OnClientDisconnect( client );
                     client.reset();
                     m_deqConnections.erase(
@@ -103,6 +104,7 @@ namespace tie
                     }
                     else
                     {
+                        std::cout << "Message connect fail (id): " << client->GetId() << std::endl;
                         OnClientDisconnect( client );
                         client.reset();
                         bInvalidClientExist = true;
