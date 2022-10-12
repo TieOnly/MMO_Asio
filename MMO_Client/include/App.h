@@ -8,7 +8,7 @@
 #include "GUI.h"
 #include "MineField.h"
 
-class App : public tie::net::client_interface<GameMsg>
+class App : public tie::net::client_interface<GameMsg>, public tie::var
 {
 public:
     App(const int fps);

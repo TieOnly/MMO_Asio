@@ -151,6 +151,10 @@ namespace tie
             {
 
             }
+            virtual void UpdateGame()
+            {
+                
+            }
         protected:
             tsqueue<owner_message<T>> m_qMessagesIn;
 

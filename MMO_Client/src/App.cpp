@@ -153,7 +153,6 @@ void App::TwoPlayerGame()
 {
     //Flag for something be changed
     descPlayer.isUpdateWithEveryOne = false;
-
     //Update From Server
     if( !InComing().empty() )
     {
@@ -181,7 +180,12 @@ void App::TwoPlayerGame()
             sPlayerDescription desc;
             msg >> desc;
             mapObjects.insert_or_assign( desc.nUniqueID, desc );
-            if( mapObjects[nPlayerID].isHost ) std::cout << "Ban la Host" << std::endl;
+            if( mapObjects[nPlayerID].isHost )
+            {
+                std::cout << "Ban la Host" << std::endl;
+                mapObjects[nPlayerID].isReady = true;
+                gui.buttons[(int)GUI::Btn_SeqID::ReadyState].SetTitle( "Let' Go" );
+            }
             
             sMapObjDesc mo_desc;
             mo_desc.dest = RectF{ 
@@ -207,7 +211,7 @@ void App::TwoPlayerGame()
             sPlayerDescription desc;
             msg >> desc;
             mapObjects.insert_or_assign( desc.nUniqueID, desc );
-            
+
             std::cout 
                 << mapObjects[desc.nUniqueID].name << ": Update! " <<
             std::endl;
@@ -244,11 +248,43 @@ void App::TwoPlayerGame()
             return;
         } break;
 
+        case GameMsg::RPSGame:
+        {
+            sRPSGame rps;
+            msg >> rps;
+            if( rps.isAbleStart )
+            {
+                std::cout << "Start! Choose your option in 5s" << std::endl;
+                tie::var::timerRPS = rps.countdown;
+                gui.buttons[(int)GUI::Btn_SeqID::ReadyState].isAbleActive = false;
+            }
+            else
+            {
+                if( rps.isAnyOneNotReady ) std::cout << "Anyone is not ready" << std::endl;
+                else std::cout << "Not enough player" << std::endl;
+            }
+            if( rps.timeup )
+            {
+                if( rps.owner_id == nPlayerID )
+                {
+                    std::cout << "Time Up!" << std::endl;
+                    tie::var::timerRPS = 0.0f;
+                }
+                if( mapDescObjs.count( rps.owner_id ) )
+                {
+                    mapDescObjs[rps.owner_id].oRPS = rps.option;
+                }
+            }
+        } break;
+
         default: break;
         }
     }
 
     //Update Game
+    //Break if nobody connect with server
+    if( mapObjects.empty() ) return;
+
     if( !gui.GetGameMod().input_value.empty() )
     {
         if( gui.GetGameMod().input_owner == GUI::Btn_SeqID::Change_Name )
@@ -276,15 +312,59 @@ void App::TwoPlayerGame()
         }
     }
 
-    for( auto it = mapDescObjs.begin(); it != mapDescObjs.end(); it++ )
-    {
-        //Update TimerChat
-        if( it->second.timerChat > 0.0f ) it->second.timerChat -= 0.01666f;
-    }
-
-    if( IsKeyPressed( KEY_UP ) )
+    if( gui.IsBtnClick( GUI::Btn_SeqID::ReadyState ) )
     {
         descPlayer.isUpdateWithEveryOne = true;
+        mapObjects[nPlayerID].isReady = !mapObjects[nPlayerID].isReady;
+        if( !mapObjects[nPlayerID].isHost )
+        {
+            gui.Btn_UpdateReadyState( mapObjects[nPlayerID].isReady );
+        }
+        else
+        {
+            tie::net::message<GameMsg> msg;
+            msg.header.id = GameMsg::RPSGame;
+            Send( msg );
+        }
+    }
+
+    if( tie::var::timerRPS > 0.0f )
+    {
+        tie::var::timerRPS -= 0.01666f;
+        tie::var::timeUpRPS = false;
+        if( IsKeyPressed( KEY_LEFT ) )
+        {
+            Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Rock ) );
+        }
+        else if( IsKeyPressed( KEY_UP ) )
+        {
+            Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Paper ) );
+        }
+        else if( IsKeyPressed( KEY_RIGHT ) )
+        {
+            Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Scissor ) );
+        }
+    }
+
+    //Update By EveryOne
+    for( auto it = mapObjects.begin(); it != mapObjects.end(); it++ )
+    {
+        //Desc
+        sMapObjDesc& mo_desc = mapDescObjs[it->second.nUniqueID];
+        //Update TimerChat
+        if( mo_desc.timerChat > 0.0f ) mo_desc.timerChat -= 0.01666f;
+    }
+    if( mapObjects[nPlayerID].isHost )
+    {
+        bool isEveryOneReady = true;
+        for( auto it = mapObjects.begin(); it != mapObjects.end(); it++ )
+        {
+            if( !it->second.isReady ) isEveryOneReady = false;
+        }
+        if( isEveryOneReady ) 
+            gui.buttons[(int)GUI::Btn_SeqID::ReadyState].isAbleActive = true;
+        else 
+            gui.buttons[(int)GUI::Btn_SeqID::ReadyState].isAbleActive = false;
     }
 
     //Update Player With EveryOne
@@ -302,7 +382,6 @@ void App::ResetPlayer()
     mapDescObjs.clear();
     bWaitingForConnect = false;
     descPlayer.nUniqueID = 0;
-	descPlayer.stateRPS = sPlayerDescription::StateRPS::GiveUp;
     descPlayer.isHost = false;
 	descPlayer.isThisTurn = false;
 	descPlayer.isFuckUp = false;

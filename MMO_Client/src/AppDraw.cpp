@@ -46,6 +46,15 @@ void App::Draw()
                 {
                     rayCpp::DrawString( mo_desc.chat, mo_desc.pos_chat, 20, WHITE );
                 }
+                //Ready State
+                if( it->second.isReady )
+                {
+                    rayCpp::DrawString( "o", mo_desc.dest.topleft + Vec2{-12.0f, 0.0f }, 20, GREEN );
+                }
+                else
+                {
+                    rayCpp::DrawString( "o", mo_desc.dest.topleft + Vec2{-12.0f, 0.0f }, 20, WHITE_TRANS );
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
 [Button_Amount]
-8
+9
 
 [Button_Titles]
 Offline
@@ -10,6 +10,7 @@ Large
 Change Name
 Chat
 Back
+Ready
 #
 
 [Button_Dests]
@@ -21,6 +22,7 @@ Back
 20 160 320 360  
 20 120 380 420  
 20 100 440 480  
+560 680 440 480  
 #
 
 [Input_Amount]

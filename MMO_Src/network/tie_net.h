@@ -25,6 +25,7 @@ enum class GameMsg : uint32_t
 	Server_GetPing,
 	Server_RemoveClient,
 	Server_RemoveHost,
+	Server_RPS_TimeUp,
 
 	Client_Accepted,
 	Client_AssignID,
@@ -38,23 +39,19 @@ enum class GameMsg : uint32_t
 
 	//Player Required
 	PR_SendChat,
-	PR_SendChatTyping
+	PR_SendChatTyping,
+	PR_RPSGame_Choose,
+
+	//Host Required
+	RPSGame
 };
 
 struct sPlayerDescription
 {
-	enum class StateRPS
-	{
-		Rock,
-		Paper,
-		Scissor,
-		GiveUp
-	};
-
 	uint32_t nUniqueID = 0;
 	char name[ML_NAME];
-	StateRPS stateRPS = StateRPS::GiveUp;
 	bool isHost = false;
+	bool isReady = false;
 	bool isThisTurn = false;
 	bool isFuckUp = false;
 	bool isWinner = false;
@@ -68,3 +65,22 @@ struct sPlayerText
 	char chat[100];
 	float timerChat = 0.0f;
 };
+
+struct sRPSGame
+{
+	enum class Options : uint8_t
+	{
+		Rock,
+		Paper,
+		Scissor,
+		GiveUp
+	};
+
+	uint32_t owner_id = -1u;
+	Options option = Options::GiveUp;
+	bool isAbleStart = false;
+	bool isAnyOneNotReady = false;
+	int countdown = 0;
+	bool timeup = false;
+};
+

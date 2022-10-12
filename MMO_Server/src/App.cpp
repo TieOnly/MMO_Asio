@@ -1,16 +1,25 @@
 #include "../../MMO_Src/network/tie_net.h"
 #include "Utils.h"
+#include "TieThread.h"
+#include "FrameTime.h"
 #include <iostream>
 
 class CustomServer : public tie::net::server_interface<GameMsg>, public tie::var
 {
 public:
+    CustomServer() = default;
     CustomServer( const uint16_t port )
         : tie::net::server_interface<GameMsg>( port )
     {}
     std::unordered_map< uint32_t, sPlayerDescription > mapPlayerRoster;
+    std::unordered_map< uint32_t, sPlayerRegisters > mapPlayerRegister;
     std::vector<uint32_t> vGarbageIDs;
-
+// private:
+//     static CustomServer& Get()
+//     {
+//         static CustomServer sv;
+//         return 
+//     }
 
 protected:
     bool OnClientConnect(std::shared_ptr<tie::net::connection<GameMsg>> client) override
@@ -40,6 +49,7 @@ protected:
                 }
                 std::cout << "[REMOVE]: " << (int)mapPlayerRoster[client->GetId()].nUniqueID << std::endl;
                 mapPlayerRoster.erase( client->GetId() );
+                mapPlayerRegister.erase( client->GetId() );
                 vGarbageIDs.push_back( client->GetId() );
             }
             //
@@ -69,6 +79,7 @@ protected:
             }
             std::cout << "[REMOVE HOST]: " << (int)host->GetId() << std::endl;
             mapPlayerRoster.clear();
+            mapPlayerRegister.clear();
             m_deqConnections.clear();
             tie::var::IDHost = -1u;
         }
@@ -90,12 +101,15 @@ protected:
             //Check to assign host
             if( tie::var::IDHost == -1u )
             {
-                desc.isHost = true;
                 tie::var::IDHost = desc.nUniqueID;
+                desc.isHost = true;
+                desc.isReady = true;
             }
             else desc.isHost = false;
-            //Update mapPlayerRoster
+            //Update mapPlayerRoster, mapPlayerRegister
             mapPlayerRoster.insert_or_assign( desc.nUniqueID, desc );
+            sPlayerRegisters desc_r{};
+            mapPlayerRegister.insert_or_assign( desc.nUniqueID, desc_r );
 
             //Assign new client
             tie::net::message<GameMsg> msgSendID;
@@ -156,9 +170,64 @@ protected:
         case GameMsg::PR_SendChatTyping: MessageAllClients( msg, client ); break;
         case GameMsg::PR_SendChat: MessageAllClients( msg, client ); break;
 
+        case GameMsg::RPSGame:
+        {
+            //Client must be host
+            if( client->GetId() == tie::var::IDHost )
+            {
+                sRPSGame rps{};
+                tie::net::message<GameMsg> mRPS;
+                mRPS.header.id = GameMsg::RPSGame;
+                if( mapPlayerRoster.size() < 2u )
+                {
+                    rps.isAbleStart = false;
+                    mRPS << rps;
+                    MessageClient( client, mRPS );
+                }
+                else if( tie::var::timerRPS == 0 )
+                {
+                    rps.isAbleStart = true;
+                    for( const auto& p : mapPlayerRoster )
+                    {
+                        if( !p.second.isReady )
+                        {
+                            rps.isAbleStart = false;
+                            rps.isAnyOneNotReady = true;
+                            mRPS << rps;
+                            MessageClient( client, mRPS );
+                            break;
+                        }
+                    }
+                    if( rps.isAbleStart )
+                    {
+                        std::cout << "Start RPSGame" << std::endl;
+                        rps.countdown = 5;
+                        tie::var::timerRPS = 5;
+                        mRPS << rps;
+                        MessageAllClients( mRPS );
+                    }
+                }
+            }
+        } break;
+
+        case GameMsg::PR_RPSGame_Choose:
+        {
+            if( mapPlayerRegister.count( client->GetId() ) )
+            {
+                if( !mapPlayerRegister[client->GetId()].isChoosedStateRPS )
+                {
+                    sRPSGame::Options cRPS;
+                    msg >> cRPS;
+                    mapPlayerRegister[client->GetId()].oRPS = cRPS;
+                    mapPlayerRegister[client->GetId()].isChoosedStateRPS = true;
+                } 
+            }
+        } break;
+
         default: break;
         }
 
+        //Update Remove Player
         if( !vGarbageIDs.empty() )
         {
             for( auto id : vGarbageIDs )
@@ -171,8 +240,45 @@ protected:
             }
             vGarbageIDs.clear();
         }
-
-        std::cout << "Amount Player: " << mapPlayerRoster.size() << std::endl;
+    }
+public:
+    static void TimerFPS( CustomServer& sv )
+    {
+        static FrameTime ft_timerfps;
+        static float dura_fps = 0.0f;
+        //Duration of each loop
+        float dTime = ft_timerfps.Mark();
+        // std::cout << "DTime: " << dTime*1000 << "ms" << std::endl;
+        dura_fps += dTime;
+        if( dura_fps >= 1.0f )
+        {
+            std::cout << "For 1s: " << dura_fps << std::endl;
+            dura_fps = 0.0f;
+        }
+        // std::cout << "Dura_FPS: " << dura_fps*1000 << "ms" << std::endl;
+        //Update
+        if( sv.timerRPS > 0.0f )
+        {
+            sv.timerRPS -= dTime;
+            sv.timeUpRPS = false;
+        }
+        else if( !sv.timeUpRPS )
+        {
+            std::cout << "RPSGame TimeUp" << std::endl;
+            sv.timeUpRPS = true;
+            sv.timerRPS = 0;
+            for( auto& p : sv.mapPlayerRegister )
+            {
+                tie::net::message<GameMsg> msg;
+                msg.header.id = GameMsg::RPSGame;
+                sRPSGame rps{};
+                rps.timeup = true;
+                rps.owner_id = p.first;
+                rps.option = p.second.oRPS;
+                msg << rps;
+                sv.MessageAllClients( msg );
+            }
+        }
     }
 };
 
@@ -180,6 +286,15 @@ int main()
 {
     CustomServer server( 60000 );
     server.Start();
+
+    tie::thread tie_thread{};
+    // tie_thread.AddThread( tie::thread::LoopWakeUpThread );
+    // tie_thread.AddThread( CustomServer::TimerFPS, std::ref(server) );
+    // void (*foo)(CustomServer&) = &CustomServer::TimerFPS;
+    tie::thread::AddThread( 
+        tie::thread::MakeLoop<CustomServer&>, 4000, 
+        CustomServer::TimerFPS, std::ref(server)
+    );
 
     while (1)
     {

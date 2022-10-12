@@ -14,6 +14,7 @@ public:
         Change_Name,
         Chat,
         Back,
+        ReadyState,
         Non
     };
     enum class Input_SeqID
@@ -38,6 +39,9 @@ public:
         Button( const RectF& dest, const std::string& title = "Button" );
         void Update();
         void Draw() const;
+
+        void SetTitle( const std::string& title );
+        bool isAbleActive = true;
         bool isHighLight = false;
     private:
         std::string title = "";
@@ -95,6 +99,10 @@ public:
     const GameMod& GetGameMod() const { return gameMod; }
     void ResetGameMode();
     void ClearInputValue();
+
+    //
+    bool IsBtnClick( const Btn_SeqID& idBtn ) const;
+    void Btn_UpdateReadyState( const bool isReady );
 
     std::vector<Button> buttons;
     std::vector<Input> inputs;

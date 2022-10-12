@@ -131,6 +131,7 @@ void GUI::Update()
             buttons[(int)Btn_SeqID::Change_Name].Update();
             buttons[(int)Btn_SeqID::Chat].Update();
             buttons[(int)Btn_SeqID::Back].Update();
+            buttons[(int)Btn_SeqID::ReadyState].Update();
             inputs[(int)Input_SeqID::Line_1].Update();
 
             //Button Funtion
@@ -204,6 +205,18 @@ void GUI::OnDisableInput( const GUI::Btn_SeqID& owner, GUI::Input& input )
 {
     input.OnDisable( gameMod );
 }
+bool GUI::IsBtnClick( const Btn_SeqID& idBtn ) const
+{
+    return buttons[(int)idBtn].GetStateEvent() == Button::StateEvent::Clicked;
+}
+void GUI::Btn_UpdateReadyState( const bool isReady )
+{
+    if( isReady )
+        buttons[(int)Btn_SeqID::ReadyState].SetTitle( "Not Ready" );
+    else
+        buttons[(int)Btn_SeqID::ReadyState].SetTitle( "Ready" );
+}
+
 void GUI::Draw() const
 {
     if( GetLayer() == Layer::ChoseMode )
@@ -228,6 +241,7 @@ void GUI::Draw() const
         {
             buttons[(int)Btn_SeqID::Change_Name].Draw();
             buttons[(int)Btn_SeqID::Chat].Draw();
+            buttons[(int)Btn_SeqID::ReadyState].Draw();
             inputs[(int)Input_SeqID::Line_1].Draw();
         }
         
@@ -242,16 +256,29 @@ GUI::Button::Button( const RectF& _dest, const std::string& _title )
 {}
 void GUI::Button::Update()
 {
-    ProcessInput();
-    if( GetStateEvent() == Entity::StateEvent::Hover || isHighLight ) lineThick = 4.0f;
-    else if ( GetStateEvent() == Entity::StateEvent::Normal ) lineThick = 2.0f;
+    if( isAbleActive )
+    {
+        ProcessInput();
+        if( GetStateEvent() == Entity::StateEvent::Hover || isHighLight ) lineThick = 4.0f;
+        else if ( GetStateEvent() == Entity::StateEvent::Normal ) lineThick = 2.0f;
+    }
 }
 void GUI::Button::Draw() const
 {
-    DrawFill( PINK );
-    DrawOutline( RED );
-    rayCpp::DrawStrCenter( title, dest, fontSize, BLACK );
+    if( isAbleActive )
+    {
+        DrawFill( PINK );
+        DrawOutline( RED );
+        rayCpp::DrawStrCenter( title, dest, fontSize, BLACK );
+    }
+    else
+    {
+        DrawFill( Color{ 255, 109, 194, 200 } );
+        DrawOutline( Color{ 230, 41, 55, 200 } );
+        rayCpp::DrawStrCenter( title, dest, fontSize, BLACK_TRANS );
+    }
 }
+void GUI::Button::SetTitle( const std::string& _title ) { title = _title; }
 //==================INPUT==================//
 GUI::Input::Input( const RectF& dest )
     :

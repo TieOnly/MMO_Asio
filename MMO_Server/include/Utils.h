@@ -1,4 +1,5 @@
 #pragma once
+#include "TieThread.h"
 
 namespace tie
 {
@@ -10,7 +11,15 @@ namespace make
 }
 class var
 {
-protected:
+public:
     uint32_t IDHost = -1u;
+    float timerRPS = 0.0f;
+    bool timeUpRPS = true;
 };
 }
+
+struct sPlayerRegisters
+{
+    bool isChoosedStateRPS = false;
+    sRPSGame::Options oRPS = sRPSGame::Options::GiveUp;
+};
