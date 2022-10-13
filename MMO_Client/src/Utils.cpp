@@ -24,7 +24,7 @@ tie::net::message<GameMsg> tie::make::MM_PR_Chat( const uint32_t& nPlayerID, con
 
     return msg;
 }
-tie::net::message<GameMsg> tie::make::MM_PR_RPSGame_Choose( const sRPSGame::Options& option )
+tie::net::message<GameMsg> tie::make:: MM_PR_RPSGame_Choose( const sRPSGame::Options& option )
 {
     tie::net::message<GameMsg> msg;
     msg.header.id = GameMsg::PR_RPSGame_Choose;

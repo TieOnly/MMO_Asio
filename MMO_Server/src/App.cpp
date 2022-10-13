@@ -14,12 +14,6 @@ public:
     std::unordered_map< uint32_t, sPlayerDescription > mapPlayerRoster;
     std::unordered_map< uint32_t, sPlayerRegisters > mapPlayerRegister;
     std::vector<uint32_t> vGarbageIDs;
-// private:
-//     static CustomServer& Get()
-//     {
-//         static CustomServer sv;
-//         return 
-//     }
 
 protected:
     bool OnClientConnect(std::shared_ptr<tie::net::connection<GameMsg>> client) override
@@ -158,7 +152,16 @@ protected:
             //Update MapPlayerRoster
             sPlayerDescription desc;
             msg >> desc;
-            mapPlayerRoster[desc.nUniqueID] = desc;
+
+            //Player want to not ready but they losed
+            if( !desc.isReady && mapPlayerRegister[client->GetId()].isLose ) desc.isReady = true;
+
+            //Update mapPlayerRoster, mapPlayerRegister
+            mapPlayerRoster[client->GetId()] = desc;
+            tie::make::MakeArrChar( 
+                mapPlayerRegister[client->GetId()].name, tie::def::ml_name,
+                desc.name
+            );
         } break;
         
         case GameMsg::Game_MesStr:
@@ -184,12 +187,12 @@ protected:
                     mRPS << rps;
                     MessageClient( client, mRPS );
                 }
-                else if( tie::var::timerRPS == 0 )
+                else if( tie::var::timerRPS == 0.0f )
                 {
                     rps.isAbleStart = true;
                     for( const auto& p : mapPlayerRoster )
                     {
-                        if( !p.second.isReady )
+                        if( !p.second.isReady && !mapPlayerRegister[p.first].isLose )
                         {
                             rps.isAbleStart = false;
                             rps.isAnyOneNotReady = true;
@@ -201,8 +204,8 @@ protected:
                     if( rps.isAbleStart )
                     {
                         std::cout << "Start RPSGame" << std::endl;
-                        rps.countdown = 5;
-                        tie::var::timerRPS = 5;
+                        rps.countdown = 5.0f;
+                        tie::var::timerRPS = 5.0f;
                         mRPS << rps;
                         MessageAllClients( mRPS );
                     }
@@ -212,15 +215,14 @@ protected:
 
         case GameMsg::PR_RPSGame_Choose:
         {
-            if( mapPlayerRegister.count( client->GetId() ) )
+            if( mapPlayerRegister.count( client->GetId() ) && !tie::var::timeUpRPS
+                && !mapPlayerRegister[client->GetId()].isLose 
+            )
             {
-                if( !mapPlayerRegister[client->GetId()].isChoosedStateRPS )
-                {
-                    sRPSGame::Options cRPS;
-                    msg >> cRPS;
-                    mapPlayerRegister[client->GetId()].oRPS = cRPS;
-                    mapPlayerRegister[client->GetId()].isChoosedStateRPS = true;
-                } 
+                sRPSGame::Options cRPS;
+                msg >> cRPS;
+                mapPlayerRegister[client->GetId()].oRPS = cRPS;
+                std::cout << "[" << client->GetId() << "]: choose " << (int)cRPS << std::endl;
             }
         } break;
 
@@ -264,8 +266,8 @@ public:
         }
         else if( !sv.timeUpRPS )
         {
-            std::cout << "RPSGame TimeUp" << std::endl;
             sv.timeUpRPS = true;
+            std::cout << "RPSGame TimeUp" << std::endl;
             sv.timerRPS = 0;
             for( auto& p : sv.mapPlayerRegister )
             {
@@ -278,6 +280,46 @@ public:
                 msg << rps;
                 sv.MessageAllClients( msg );
             }
+            sv.MessageAllClients(tie::make::MM_HeaderID(GameMsg::Server_RPS_DoneUpdate));
+
+            std::cout << "===========Result===========\n";
+            for( auto& p : sv.mapPlayerRegister )
+            {
+                std::string choice = "";
+                switch (p.second.oRPS)
+                {
+                case sRPSGame::Options::Rock: choice = "Rock"; break;
+                case sRPSGame::Options::Paper: choice = "Paper"; break;
+                case sRPSGame::Options::Scissor: choice = "Scissor"; break;
+                default: choice = "Give Up"; break;
+                }
+                std::cout << "Player " << p.second.name << ": choose " << choice << '\n';
+            }
+
+            //Send RPSGame result to everyone
+            std::map<uint32_t, bool>&& vPlayerLose = tie::util::RPSGameCheckRes( sv.mapPlayerRegister );
+            std::vector<uint32_t> vPlayerShouldRemove;
+            std::cout << "Amount Player Lose: " << (int)vPlayerLose.size() << std::endl;
+            for( auto& p : vPlayerLose )
+            {
+                if( p.second )
+                {
+                    vPlayerShouldRemove.push_back(p.first);
+                    tie::net::message<GameMsg> msg;
+                    msg.header.id = GameMsg::Server_RPS_IDPlayer_Lose;
+                    msg << p.first;
+                    sv.MessageAllClients( msg );
+                }
+            }
+            std::cout << "Amount Player Be Removed: " << (int)vPlayerShouldRemove.size() << std::endl;
+            for( auto& p : vPlayerShouldRemove ) vPlayerLose.erase( p );
+            if( vPlayerLose.size() == 1u )
+            {
+                tie::net::message<GameMsg> msg;
+                msg.header.id = GameMsg::Server_RPS_IDPlayer_Win;
+                msg << vPlayerLose.begin()->first;
+                sv.MessageAllClients( msg );
+            }
         }
     }
 };
@@ -288,9 +330,6 @@ int main()
     server.Start();
 
     tie::thread tie_thread{};
-    // tie_thread.AddThread( tie::thread::LoopWakeUpThread );
-    // tie_thread.AddThread( CustomServer::TimerFPS, std::ref(server) );
-    // void (*foo)(CustomServer&) = &CustomServer::TimerFPS;
     tie::thread::AddThread( 
         tie::thread::MakeLoop<CustomServer&>, 4000, 
         CustomServer::TimerFPS, std::ref(server)

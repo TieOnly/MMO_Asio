@@ -35,6 +35,19 @@ private:
 
     GUI gui;
     MineField* pField = nullptr;
+    
+private:
+    void UpdateDuringTimerRPSGame();
+    void UpdateByEveryOne();
+    void ProcessInputBar();
+    void ProcessBtns();
+//===================Implement GameMsg InComing=============================//
+private:
+    void IPMT_GM_RPSGame( tie::net::message<GameMsg>& msg );
+    void IPMT_GM_Server_RPS_DoneUpdate( tie::net::message<GameMsg>& msg );
+    void IPMT_GM_Server_RPS_IDPlayer_Lose( tie::net::message<GameMsg>& msg );
+    void IPMT_GM_Server_RPS_IDPlayer_Win( tie::net::message<GameMsg>& msg );
+//==========================================================================//
 private:
     std::unordered_map< uint32_t, sPlayerDescription > mapObjects;
     std::unordered_map< uint32_t, sMapObjDesc > mapDescObjs;

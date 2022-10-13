@@ -15,7 +15,7 @@ class var
 {
 protected:
     float timerRPS = 0.0f;
-    bool timeUpRPS = true;
+    int count_order = 0;
 };
 }
 
@@ -31,4 +31,6 @@ struct sMapObjDesc
 
     //RPS Game
     sRPSGame::Options oRPS = sRPSGame::Options::GiveUp;
+    bool isLose = false;
+    int order = -1;
 };

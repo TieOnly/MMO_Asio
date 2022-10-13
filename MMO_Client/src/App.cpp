@@ -186,8 +186,9 @@ void App::TwoPlayerGame()
                 mapObjects[nPlayerID].isReady = true;
                 gui.buttons[(int)GUI::Btn_SeqID::ReadyState].SetTitle( "Let' Go" );
             }
+            else gui.Btn_UpdateReadyState(false);
             
-            sMapObjDesc mo_desc;
+            sMapObjDesc mo_desc{};
             mo_desc.dest = RectF{ 
                 Vec2{ 20.0f, 50.0f + (int)mapObjects.size()*30.0f }, 
                 (float)MeasureText( desc.name, 20 ), 20.0f
@@ -248,34 +249,13 @@ void App::TwoPlayerGame()
             return;
         } break;
 
-        case GameMsg::RPSGame:
-        {
-            sRPSGame rps;
-            msg >> rps;
-            if( rps.isAbleStart )
-            {
-                std::cout << "Start! Choose your option in 5s" << std::endl;
-                tie::var::timerRPS = rps.countdown;
-                gui.buttons[(int)GUI::Btn_SeqID::ReadyState].isAbleActive = false;
-            }
-            else
-            {
-                if( rps.isAnyOneNotReady ) std::cout << "Anyone is not ready" << std::endl;
-                else std::cout << "Not enough player" << std::endl;
-            }
-            if( rps.timeup )
-            {
-                if( rps.owner_id == nPlayerID )
-                {
-                    std::cout << "Time Up!" << std::endl;
-                    tie::var::timerRPS = 0.0f;
-                }
-                if( mapDescObjs.count( rps.owner_id ) )
-                {
-                    mapDescObjs[rps.owner_id].oRPS = rps.option;
-                }
-            }
-        } break;
+        case GameMsg::RPSGame: App::IPMT_GM_RPSGame( msg ); break;
+        
+        case GameMsg::Server_RPS_DoneUpdate: App::IPMT_GM_Server_RPS_DoneUpdate( msg ); break;
+
+        case GameMsg::Server_RPS_IDPlayer_Lose: App::IPMT_GM_Server_RPS_IDPlayer_Lose( msg ); break;
+        
+        case GameMsg::Server_RPS_IDPlayer_Win: App::IPMT_GM_Server_RPS_IDPlayer_Win( msg ); break;
 
         default: break;
         }
@@ -285,6 +265,44 @@ void App::TwoPlayerGame()
     //Break if nobody connect with server
     if( mapObjects.empty() ) return;
 
+    //Process Input Bar
+    ProcessInputBar();
+    //Process Buttons
+    ProcessBtns();
+    //Update During TimerRPS
+    UpdateDuringTimerRPSGame();
+    //Update By EveryOne
+    UpdateByEveryOne();
+    //Update Player With EveryOne
+    if( descPlayer.isUpdateWithEveryOne )
+    {
+        tie::net::message<GameMsg> msg;
+        msg.header.id = GameMsg::Game_UpdatePlayer;
+        msg << mapObjects[nPlayerID];
+        Send( msg );
+    }
+}
+//================Update State TimerRPS========================//
+//=============================================================//
+void App::ResetPlayer()
+{   
+    mapObjects.clear();
+    mapDescObjs.clear();
+    bWaitingForConnect = false;
+    descPlayer.nUniqueID = 0;
+    descPlayer.isHost = false;
+	descPlayer.isThisTurn = false;
+	descPlayer.isFuckUp = false;
+	descPlayer.isWinner = false;
+	descPlayer.countPress = 0;
+
+    gui.Btn_UpdateReadyState(false);
+    gui.buttons[(int)GUI::Btn_SeqID::ReadyState].isAbleActive = true;
+}   
+//=======================Process Input Bar=====================//
+//=============================================================//
+void App::ProcessInputBar()
+{
     if( !gui.GetGameMod().input_value.empty() )
     {
         if( gui.GetGameMod().input_owner == GUI::Btn_SeqID::Change_Name )
@@ -311,7 +329,12 @@ void App::TwoPlayerGame()
             Send( tie::make::MM_PR_ChatTyping( nPlayerID ) );
         }
     }
-
+}
+//=======================Process Buttons=======================//
+//=============================================================//
+void App::ProcessBtns()
+{
+    //Event BTN_ReadyState
     if( gui.IsBtnClick( GUI::Btn_SeqID::ReadyState ) )
     {
         descPlayer.isUpdateWithEveryOne = true;
@@ -327,26 +350,34 @@ void App::TwoPlayerGame()
             Send( msg );
         }
     }
-
+}
+//=================Update During TimerRPS=======================//
+//=============================================================//
+void App::UpdateDuringTimerRPSGame()
+{
     if( tie::var::timerRPS > 0.0f )
     {
-        tie::var::timerRPS -= 0.01666f;
-        tie::var::timeUpRPS = false;
         if( IsKeyPressed( KEY_LEFT ) )
         {
             Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Rock ) );
+            std::cout << "Your choice is Rock" << std::endl;
         }
         else if( IsKeyPressed( KEY_UP ) )
         {
             Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Paper ) );
+            std::cout << "Your choice is Paper" << std::endl;
         }
         else if( IsKeyPressed( KEY_RIGHT ) )
         {
             Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Scissor ) );
+            std::cout << "Your choice is Scissor" << std::endl;
         }
     }
-
-    //Update By EveryOne
+}
+//====================Update By EveryOne=======================//
+//=============================================================//
+void App::UpdateByEveryOne()
+{
     for( auto it = mapObjects.begin(); it != mapObjects.end(); it++ )
     {
         //Desc
@@ -366,26 +397,6 @@ void App::TwoPlayerGame()
         else 
             gui.buttons[(int)GUI::Btn_SeqID::ReadyState].isAbleActive = false;
     }
-
-    //Update Player With EveryOne
-    if( descPlayer.isUpdateWithEveryOne )
-    {
-        tie::net::message<GameMsg> msg;
-        msg.header.id = GameMsg::Game_UpdatePlayer;
-        msg << mapObjects[nPlayerID];
-        Send( msg );
-    }
 }
-void App::ResetPlayer()
-{   
-    mapObjects.clear();
-    mapDescObjs.clear();
-    bWaitingForConnect = false;
-    descPlayer.nUniqueID = 0;
-    descPlayer.isHost = false;
-	descPlayer.isThisTurn = false;
-	descPlayer.isFuckUp = false;
-	descPlayer.isWinner = false;
-	descPlayer.countPress = 0;
-}   
+//=============================================================//
 //=============================================================//
