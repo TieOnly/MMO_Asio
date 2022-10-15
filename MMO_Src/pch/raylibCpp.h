@@ -37,7 +37,9 @@ namespace rayCpp
     RectF GetScreenRect();
     Vec2 GetMousePos();
     RectF GetSrcRect( const Texture2D* surface );
-    Vec2 CreateVecByData( const std::string& data, const char delim );
+    Vec2 CreateVecByData( const std::string& data, const char delim = ' ' );
+    RectF CreateRectFByData( const std::string& data, const char delim = ' ' );
+    Vec2 MakePosNextStr( const Vec2& pos_str, const std::string& str, const int fontsize = 20, const float distance = 20 );
     bool CheckCollidedRectCir( const RectF& rect, const Vec2& pos_cir, const float radius );
 
     int BinarySerch_IdInVei2( const std::vector<Vei2>& vei, const Vei2 val );

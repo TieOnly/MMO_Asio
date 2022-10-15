@@ -1,0 +1,28 @@
+[Dest_Origin_Title]
+500 600 50 50
+
+[Dest_Origin_Sub_Desc]
+500 600 90 90
+
+[Dest_Origin_Btns]
+500 600 130 130
+
+[Title]
+RPS Game
+
+[Button_Amount]
+3
+
+[Button_Titles]
+Rock
+Paper
+Scissor
+#
+
+[Button_Dimens]
+120 40
+
+[Button_Between_Distance]
+20
+
+//

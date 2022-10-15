@@ -25,9 +25,11 @@ enum class GameMsg : uint32_t
 	Server_GetPing,
 	Server_RemoveClient,
 	Server_RemoveHost,
+	Server_RPS_TimeUp,
 	Server_RPS_DoneUpdate,
 	Server_RPS_IDPlayer_Lose,
 	Server_RPS_IDPlayer_Win,
+	Server_RPS_AssignOrder,
 
 	Client_Accepted,
 	Client_AssignID,
@@ -80,6 +82,8 @@ struct sRPSGame
 
 	uint32_t owner_id = -1u;
 	Options option = Options::GiveUp;
+	int order = -1;
+	int cur_order = -1;
 	bool isAbleStart = false;
 	bool isAnyOneNotReady = false;
 	float countdown = 0.0f;

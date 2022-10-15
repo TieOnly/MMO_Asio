@@ -43,10 +43,11 @@ private:
     void ProcessBtns();
 //===================Implement GameMsg InComing=============================//
 private:
+    void IPMT_GM_Server_RPS_TimeUp( tie::net::message<GameMsg>& msg );
     void IPMT_GM_RPSGame( tie::net::message<GameMsg>& msg );
     void IPMT_GM_Server_RPS_DoneUpdate( tie::net::message<GameMsg>& msg );
-    void IPMT_GM_Server_RPS_IDPlayer_Lose( tie::net::message<GameMsg>& msg );
-    void IPMT_GM_Server_RPS_IDPlayer_Win( tie::net::message<GameMsg>& msg );
+    // void IPMT_GM_Server_RPS_IDPlayer_Lose( tie::net::message<GameMsg>& msg );
+    // void IPMT_GM_Server_RPS_IDPlayer_Win( tie::net::message<GameMsg>& msg );
 //==========================================================================//
 private:
     std::unordered_map< uint32_t, sPlayerDescription > mapObjects;

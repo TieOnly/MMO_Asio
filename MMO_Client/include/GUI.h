@@ -41,8 +41,10 @@ public:
         void Draw() const;
 
         void SetTitle( const std::string& title );
+        bool isChoosen = false;
         bool isAbleActive = true;
         bool isHighLight = false;
+        bool AbleDrawOutline = true;
     private:
         std::string title = "";
     };
@@ -73,6 +75,52 @@ public:
         bool blink = false;
         float counterBlink = 0.0f;
         float duraBlink = 0.4f;
+    };
+//==================RPSGame==================//
+public:
+    class RPSGame
+    {
+    public:
+        enum class SeqID_Btn
+        {
+            Rock, Paper, Scissor
+        };
+        enum class TYPE_CHOOSE_BTN
+        {
+            Radio,
+            Tick
+        };
+        void LoadData( const std::string& filename );
+        void Update();
+        void Draw() const;
+
+        void SetSubDesc( const std::string& text );
+        void StyleAllBtnNormal();
+        void StyleBtnNormal( Button& btn );
+        void StyleBtnBeChoosen( Button& btn );
+        bool IsBtnClick( const SeqID_Btn& idBtn ) const;
+        void ResetSub();
+        TYPE_CHOOSE_BTN type_choose_btn = TYPE_CHOOSE_BTN::Radio;
+        struct sSubNotify
+        {
+            int time = 5;
+            std::string text;
+        } sub_desc;
+    private:
+        FileIO data;
+        RectF dest_origin_title{};
+        RectF dest_origin_sub_desc{};
+        RectF dest_origin_btns{};
+        std::string title;
+
+        //Button variables
+        std::vector<GUI::Button> buttons;
+        int btn_amount = 0;
+        std::vector<std::string> btn_titles;
+        Vec2 btn_dimen;
+        float btn_between_distance = 0.0f;
+
+        bool isExistBtnBeChoosen = false;
     };
 ////////////////////////////////////////////////////////////////
 public:
@@ -106,6 +154,7 @@ public:
 
     std::vector<Button> buttons;
     std::vector<Input> inputs;
+    RPSGame rpsGame;
 private:
     void OnEnableInput( const GUI::Btn_SeqID& owner, GUI::Input& input, const float lenght = 100.0f );
     void OnDisableInput( const GUI::Btn_SeqID& owner, GUI::Input& input );

@@ -75,6 +75,8 @@ protected:
             mapPlayerRoster.clear();
             mapPlayerRegister.clear();
             m_deqConnections.clear();
+            tie::var::cur_order = -1;
+            tie::var::serch_order = 1;
             tie::var::IDHost = -1u;
         }
     }
@@ -92,14 +94,14 @@ protected:
             tie::make::MakeArrChar( desc.name, tie::def::ml_name, 
                 "Player " + std::to_string(desc.nUniqueID) 
             );
-            //Check to assign host
-            if( tie::var::IDHost == -1u )
-            {
-                tie::var::IDHost = desc.nUniqueID;
-                desc.isHost = true;
-                desc.isReady = true;
-            }
-            else desc.isHost = false;
+            // //Check to assign host
+            // if( tie::var::IDHost == -1u )
+            // {
+            //     tie::var::IDHost = desc.nUniqueID;
+            //     desc.isHost = true;
+            //     desc.isReady = true;
+            // }
+            // else desc.isHost = false;
             //Update mapPlayerRoster, mapPlayerRegister
             mapPlayerRoster.insert_or_assign( desc.nUniqueID, desc );
             sPlayerRegisters desc_r{};
@@ -132,16 +134,16 @@ protected:
             //Disconnect this client
             OnClientDisconnect( client );
             
-            if( client->GetId() != tie::var::IDHost )
-            {
-                //Update rest connects
-                sPlayerDescription desc;
-                msg >> desc;
-                tie::net::message<GameMsg> mRemove;
-                mRemove.header.id = GameMsg::Game_RemovePlayer;
-                mRemove << desc.nUniqueID;
-                MessageAllClients( mRemove );
-            }
+            // if( client->GetId() != tie::var::IDHost )
+            // {
+            // }
+            //Update rest connects
+            sPlayerDescription desc;
+            msg >> desc;
+            tie::net::message<GameMsg> mRemove;
+            mRemove.header.id = GameMsg::Game_RemovePlayer;
+            mRemove << desc.nUniqueID;
+            MessageAllClients( mRemove );
         } break;
 
         case GameMsg::Game_UpdatePlayer:
@@ -154,7 +156,7 @@ protected:
             msg >> desc;
 
             //Player want to not ready but they losed
-            if( !desc.isReady && mapPlayerRegister[client->GetId()].isLose ) desc.isReady = true;
+            // if( !desc.isReady && mapPlayerRegister[client->GetId()].isLose ) desc.isReady = true;
 
             //Update mapPlayerRoster, mapPlayerRegister
             mapPlayerRoster[client->GetId()] = desc;
@@ -171,43 +173,63 @@ protected:
         } break;
 
         case GameMsg::PR_SendChatTyping: MessageAllClients( msg, client ); break;
-        case GameMsg::PR_SendChat: MessageAllClients( msg, client ); break;
+        case GameMsg::PR_SendChat: MessageAllClients( msg ); break;
 
         case GameMsg::RPSGame:
         {
-            //Client must be host
-            if( client->GetId() == tie::var::IDHost )
+            // //Client must be host
+            // if( client->GetId() == tie::var::IDHost )
+            // {
+            // }
+            std::cout << "Serch: " << tie::var::serch_order << '\n';
+            std::cout << "CurOrder: " << tie::var::cur_order << '\n';
+            std::cout << "ClientOrder: " << mapPlayerRegister[client->GetId()].order << '\n';
+            bool isClientReady;
+            msg >> isClientReady;
+            //Check able to join game
+            if( mapPlayerRegister[client->GetId()].order == tie::var::cur_order )
             {
-                sRPSGame rps{};
-                tie::net::message<GameMsg> mRPS;
-                mRPS.header.id = GameMsg::RPSGame;
-                if( mapPlayerRoster.size() < 2u )
+                //Update to everyone
+                mapPlayerRoster[client->GetId()].isReady = isClientReady;
+                std::cout << "ClientReady: " << isClientReady << '\n';
+                tie::net::message<GameMsg> msg;
+                msg.header.id = GameMsg::Game_UpdatePlayer;
+                msg << mapPlayerRoster[client->GetId()];
+                MessageAllClients( msg );
+
+                if( isClientReady )
                 {
-                    rps.isAbleStart = false;
-                    mRPS << rps;
-                    MessageClient( client, mRPS );
-                }
-                else if( tie::var::timerRPS == 0.0f )
-                {
-                    rps.isAbleStart = true;
-                    for( const auto& p : mapPlayerRoster )
+                    sRPSGame rps{};
+                    tie::net::message<GameMsg> mRPS;
+                    mRPS.header.id = GameMsg::RPSGame;
+                    if( mapPlayerRoster.size() < 2u )
                     {
-                        if( !p.second.isReady && !mapPlayerRegister[p.first].isLose )
-                        {
-                            rps.isAbleStart = false;
-                            rps.isAnyOneNotReady = true;
-                            mRPS << rps;
-                            MessageClient( client, mRPS );
-                            break;
-                        }
-                    }
-                    if( rps.isAbleStart )
-                    {
-                        std::cout << "Start RPSGame" << std::endl;
-                        rps.countdown = 5.0f;
-                        tie::var::timerRPS = 5.0f;
+                        rps.isAbleStart = false;
                         mRPS << rps;
-                        MessageAllClients( mRPS );
+                        MessageClient( client, mRPS );
+                    }
+                    else if( tie::var::timerRPS == 0.0f )
+                    {
+                        rps.isAbleStart = true;
+                        for( const auto& p : mapPlayerRoster )
+                        {
+                            if( !p.second.isReady && mapPlayerRegister[p.first].order == tie::var::cur_order )
+                            {
+                                rps.isAbleStart = false;
+                                rps.isAnyOneNotReady = true;
+                                mRPS << rps;
+                                MessageClient( client, mRPS );
+                                break;
+                            }
+                        }
+                        if( rps.isAbleStart )
+                        {
+                            std::cout << "Start RPSGame" << std::endl;
+                            rps.countdown = 5.0f + 1.0f;
+                            tie::var::timerRPS = 5.0f + 1.0f;
+                            mRPS << rps;
+                            MessageAllClients( mRPS );
+                        }
                     }
                 }
             }
@@ -215,8 +237,8 @@ protected:
 
         case GameMsg::PR_RPSGame_Choose:
         {
-            if( mapPlayerRegister.count( client->GetId() ) && !tie::var::timeUpRPS
-                && !mapPlayerRegister[client->GetId()].isLose 
+            if( mapPlayerRegister.count( client->GetId() ) && tie::var::timerRPS <= 5.0f
+                && mapPlayerRegister[client->GetId()].order == tie::var::cur_order
             )
             {
                 sRPSGame::Options cRPS;
@@ -247,17 +269,17 @@ public:
     static void TimerFPS( CustomServer& sv )
     {
         static FrameTime ft_timerfps;
-        static float dura_fps = 0.0f;
         //Duration of each loop
         float dTime = ft_timerfps.Mark();
-        // std::cout << "DTime: " << dTime*1000 << "ms" << std::endl;
+        
+        static float dura_fps = 0.0f;
         dura_fps += dTime;
         if( dura_fps >= 1.0f )
         {
             std::cout << "For 1s: " << dura_fps << std::endl;
             dura_fps = 0.0f;
         }
-        // std::cout << "Dura_FPS: " << dura_fps*1000 << "ms" << std::endl;
+        
         //Update
         if( sv.timerRPS > 0.0f )
         {
@@ -267,59 +289,67 @@ public:
         else if( !sv.timeUpRPS )
         {
             sv.timeUpRPS = true;
-            std::cout << "RPSGame TimeUp" << std::endl;
             sv.timerRPS = 0;
-            for( auto& p : sv.mapPlayerRegister )
-            {
-                tie::net::message<GameMsg> msg;
-                msg.header.id = GameMsg::RPSGame;
-                sRPSGame rps{};
-                rps.timeup = true;
-                rps.owner_id = p.first;
-                rps.option = p.second.oRPS;
-                msg << rps;
-                sv.MessageAllClients( msg );
-            }
-            sv.MessageAllClients(tie::make::MM_HeaderID(GameMsg::Server_RPS_DoneUpdate));
+            std::cout << "RPSGame TimeUp" << std::endl;
+            sv.MessageAllClients(tie::make::MM_HeaderID(GameMsg::Server_RPS_TimeUp));
 
+
+            //Send RPSGame result to everyone
+            std::map<uint32_t, bool>&& vPlayerLose = tie::util::RPSGameCheckRes( sv.mapPlayerRegister, sv.cur_order );
+            tie::util::RPSGame_ProcessOrder(
+                sv.mapPlayerRegister, vPlayerLose,
+                std::ref(sv.cur_order), std::ref(sv.serch_order)
+            );
             std::cout << "===========Result===========\n";
-            for( auto& p : sv.mapPlayerRegister )
+            for( auto& p : vPlayerLose )
             {
                 std::string choice = "";
-                switch (p.second.oRPS)
+                switch (sv.mapPlayerRegister[p.first].oRPS)
                 {
                 case sRPSGame::Options::Rock: choice = "Rock"; break;
                 case sRPSGame::Options::Paper: choice = "Paper"; break;
                 case sRPSGame::Options::Scissor: choice = "Scissor"; break;
                 default: choice = "Give Up"; break;
                 }
-                std::cout << "Player " << p.second.name << ": choose " << choice << '\n';
+                std::cout << "Player " << sv.mapPlayerRoster[p.first].name << ": choose " << choice << '\n';
             }
-
-            //Send RPSGame result to everyone
-            std::map<uint32_t, bool>&& vPlayerLose = tie::util::RPSGameCheckRes( sv.mapPlayerRegister );
-            std::vector<uint32_t> vPlayerShouldRemove;
-            std::cout << "Amount Player Lose: " << (int)vPlayerLose.size() << std::endl;
+            if( sv.cur_order > (int)sv.mapPlayerRoster.size() )
+            {
+                sv.cur_order = -1;
+                sv.serch_order = 1;
+                std::cout << "Done RPS Game" << std::endl;
+            }
+            // for( auto& p : sv.mapPlayerRegister )
+            // {
+            //     if( vPlayerLose.count( p.first ) ) continue;
+            //     std::cout << p.first << " (order): " << p.second.order << std::endl;
+            //     tie::net::message<GameMsg> msg;
+            //     msg.header.id = GameMsg::RPSGame;
+            //     sRPSGame rps{};
+            //     rps.timeup = true;
+            //     rps.owner_id = p.first;
+            //     rps.option = p.second.oRPS;
+            //     rps.order = p.second.order;
+            //     rps.cur_order = sv.cur_order;
+            //     msg << rps;
+            //     sv.MessageAllClients( msg );
+            // }
             for( auto& p : vPlayerLose )
             {
-                if( p.second )
-                {
-                    vPlayerShouldRemove.push_back(p.first);
-                    tie::net::message<GameMsg> msg;
-                    msg.header.id = GameMsg::Server_RPS_IDPlayer_Lose;
-                    msg << p.first;
-                    sv.MessageAllClients( msg );
-                }
-            }
-            std::cout << "Amount Player Be Removed: " << (int)vPlayerShouldRemove.size() << std::endl;
-            for( auto& p : vPlayerShouldRemove ) vPlayerLose.erase( p );
-            if( vPlayerLose.size() == 1u )
-            {
+                sPlayerRegisters& player = sv.mapPlayerRegister[p.first];
+                std::cout << p.first << " (order): " << player.order << std::endl;
                 tie::net::message<GameMsg> msg;
-                msg.header.id = GameMsg::Server_RPS_IDPlayer_Win;
-                msg << vPlayerLose.begin()->first;
+                msg.header.id = GameMsg::RPSGame;
+                sRPSGame rps{};
+                rps.timeup = true;
+                rps.owner_id = p.first;
+                rps.option = player.oRPS;
+                rps.order = player.order;
+                rps.cur_order = sv.cur_order;
+                msg << rps;
                 sv.MessageAllClients( msg );
             }
+            sv.MessageAllClients(tie::make::MM_HeaderID(GameMsg::Server_RPS_DoneUpdate));
         }
     }
 };

@@ -1,4 +1,4 @@
-#include "raylibCpp.h"
+#include "../../MMO_Src/pch/raylibCpp.h"
 #include "GUI.h"
 
 void GUI::LoadAsset()
@@ -76,6 +76,7 @@ void GUI::LoadAsset()
         inputs.emplace_back( Input{ input_dests[i] } );
         inputs.back().SetState(Input::StateEvent::Disable);
     }
+    rpsGame.LoadData("Config/rpsgame_config.txt");
 }
 void GUI::Update()
 {
@@ -133,6 +134,7 @@ void GUI::Update()
             buttons[(int)Btn_SeqID::Back].Update();
             buttons[(int)Btn_SeqID::ReadyState].Update();
             inputs[(int)Input_SeqID::Line_1].Update();
+            rpsGame.Update();
 
             //Button Funtion
             if( buttons[(int)Btn_SeqID::Change_Name].GetStateEvent() == Entity::StateEvent::Clicked )
@@ -243,6 +245,7 @@ void GUI::Draw() const
             buttons[(int)Btn_SeqID::Chat].Draw();
             buttons[(int)Btn_SeqID::ReadyState].Draw();
             inputs[(int)Input_SeqID::Line_1].Draw();
+            rpsGame.Draw();
         }
         
         buttons[(int)Btn_SeqID::Back].Draw();
@@ -253,29 +256,35 @@ GUI::Button::Button( const RectF& _dest, const std::string& _title )
     :
     Entity( _dest ),
     title( _title )
-{}
+{
+    colorLayout = WHITE_TRANS;
+    colorLine = RED;
+    colorFill = PINK;
+    colorFont = BLACK;
+    colorFontNoActive = BLACK_TRANS;
+}
 void GUI::Button::Update()
 {
     if( isAbleActive )
     {
         ProcessInput();
-        if( GetStateEvent() == Entity::StateEvent::Hover || isHighLight ) lineThick = 4.0f;
-        else if ( GetStateEvent() == Entity::StateEvent::Normal ) lineThick = 2.0f;
+        lineThick = 1.0f;
+        if( GetStateEvent() == Entity::StateEvent::Hover || isHighLight ) lineThick = 3.0f;
     }
 }
 void GUI::Button::Draw() const
 {
     if( isAbleActive )
     {
-        DrawFill( PINK );
-        DrawOutline( RED );
-        rayCpp::DrawStrCenter( title, dest, fontSize, BLACK );
+        DrawFill( colorFill );
+        if( AbleDrawOutline ) DrawOutline( colorLine );
+        rayCpp::DrawStrCenter( title, dest, fontSize, colorFont );
     }
     else
     {
         DrawFill( Color{ 255, 109, 194, 200 } );
-        DrawOutline( Color{ 230, 41, 55, 200 } );
-        rayCpp::DrawStrCenter( title, dest, fontSize, BLACK_TRANS );
+        if( AbleDrawOutline ) DrawOutline( Color{ 230, 41, 55, 200 } );
+        rayCpp::DrawStrCenter( title, dest, fontSize, colorFontNoActive );
     }
 }
 void GUI::Button::SetTitle( const std::string& _title ) { title = _title; }
@@ -395,4 +404,145 @@ void GUI::Input::Draw() const
             DrawOutline( GRAY );
         }
     }
+}
+//==================RPSGame==================//
+void GUI::RPSGame::LoadData( const std::string& filename )
+{
+    data.NewBuff();
+    if( data.LoadFromFile( filename ) )
+    {
+        std::stringstream buff( data.GetBuff() );
+        std::string token;
+        while ( std::getline( buff, token ) && token != "//" )
+        {
+            if( token == "[Dest_Origin_Title]" )
+            {
+                std::getline( buff, token );
+                dest_origin_title = rayCpp::CreateRectFByData(token, ' ');
+            }
+            else if( token == "[Dest_Origin_Btns]" )
+            {
+                std::getline( buff, token );
+                dest_origin_btns = rayCpp::CreateRectFByData(token, ' ');
+            }
+            else if( token == "[Dest_Origin_Sub_Desc]" )
+            {
+                std::getline( buff, token );
+                dest_origin_sub_desc = rayCpp::CreateRectFByData(token);
+            }
+            else if( token == "[Title]" )
+            {
+                std::getline( buff, token );
+                title = std::move( token );
+            }
+            else if( token == "[Button_Amount]" )
+            {
+                std::getline( buff, token );
+                btn_amount = std::stoi(token);
+            }
+            else if( token == "[Button_Titles]" )
+            {
+                while ( std::getline( buff, token ) && token != "#" )
+                {
+                    btn_titles.push_back( token );
+                }
+            }
+            else if( token == "[Button_Dimens]" )
+            {
+                std::getline( buff, token );
+                btn_dimen = rayCpp::CreateVecByData(token, ' ');
+            }
+            else if( token == "[Button_Between_Distance]" )
+            {
+                std::getline( buff, token );
+                btn_between_distance = std::stof(token);
+            }
+        }
+        std::cout << "[LoadData](RPSGame): Success!" << std::endl; 
+    }
+    else
+    {
+        std::cout << "[LoadData](RPSGame): Faile!" << std::endl; 
+    }
+    //Init
+    for( int i = 0; i < btn_amount; i++ )
+    {
+        buttons.emplace_back( Button{ 
+            RectF{ 
+                dest_origin_btns.GetCenterPoint() 
+                + Vec2{-(btn_dimen.x / 2.0f), i*(btn_dimen.y + btn_between_distance)}, 
+                btn_dimen.x, btn_dimen.y 
+            }, 
+            btn_titles[i] 
+        } );
+        GUI::Button& btn = buttons.back();
+        btn.colorLine = Color{247, 73, 42, 255};
+        btn.colorFill = Color{245, 114, 66, 255};
+        btn.colorFont = WHITE;
+        btn.colorFontNoActive = WHITE_TRANS;
+    }
+    ResetSub();
+}
+void GUI::RPSGame::SetSubDesc( const std::string& text ) { sub_desc.text = std::move(text); }
+bool GUI::RPSGame::IsBtnClick( const SeqID_Btn& idBtn ) const
+{
+    return buttons[(int)idBtn].GetStateEvent() == GUI::Button::StateEvent::Clicked;
+}
+void GUI::RPSGame::StyleAllBtnNormal()
+{
+    for( auto& b : buttons ) StyleBtnNormal(b); 
+}
+void GUI::RPSGame::StyleBtnNormal( GUI::Button& btn )
+{
+    btn.isChoosen = false;
+    btn.colorLine = Color{247, 73, 42, 255};
+    btn.colorFill = Color{245, 114, 66, 255};
+    btn.colorFont = WHITE;
+    btn.colorFontNoActive = WHITE_TRANS;
+    btn.AbleDrawOutline = true;
+}
+void GUI::RPSGame::StyleBtnBeChoosen( Button& btn )
+{
+    btn.isChoosen = true;
+    btn.colorFill = Color{245, 62, 29, 255};
+    btn.colorLine = Color{245, 35, 12, 255};
+    btn.AbleDrawOutline = false;
+}
+void GUI::RPSGame::ResetSub()
+{
+    sub_desc.text = "Choose your choice...";
+    sub_desc.time = 5;
+}
+void GUI::RPSGame::Update()
+{
+    isExistBtnBeChoosen = false;
+    for( auto& b : buttons ) 
+    {
+        b.Update();
+        if( b.GetStateEvent() == GUI::Button::StateEvent::Clicked )
+        {
+            isExistBtnBeChoosen = true;
+            b.isChoosen = true;
+            StyleBtnBeChoosen( b );
+        }
+    }
+    if( type_choose_btn == TYPE_CHOOSE_BTN::Radio && isExistBtnBeChoosen )
+    {
+        for( GUI::Button& b : buttons )
+        {
+            if( b.GetStateEvent() != GUI::Button::StateEvent::Clicked )
+            {
+                StyleBtnNormal( b );
+            }
+        }
+    }
+}
+void GUI::RPSGame::Draw() const
+{
+    rayCpp::DrawStrCenter( RPSGame::title, dest_origin_title, 40, SKYBLUE );
+    rayCpp::DrawStrCenter( 
+        RPSGame::sub_desc.text + std::to_string(RPSGame::sub_desc.time) + "s", 
+        dest_origin_sub_desc, 20, WHITE_TRANS 
+    );
+    for( auto& b : buttons ) b.Draw();
 }

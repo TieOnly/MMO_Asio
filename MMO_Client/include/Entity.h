@@ -33,6 +33,12 @@ public:
     // void SetPadding();
     // void SetFontSize();
 
+    Color colorLayout = WHITE_TRANS;
+    Color colorLine = SKYBLUE;
+    Color colorFill = RAYWHITE;
+    Color colorFont = WHITE;
+    Color colorFontNoActive = WHITE_TRANS;
+    float lineThick = 2.0f;
 protected:
     int id = 0;
     RectF dest{};
@@ -44,10 +50,6 @@ protected:
 
     StateEvent curState = StateEvent::Normal;
     float fontSize = 20.0f;
-    float lineThick = 2.0f;
-    Color colorLayout = WHITE_TRANS;
-    Color colorLine = SKYBLUE;
-    Color colorFill = RAYWHITE;
 
     bool isNew = false;
     Vec2 originFirst{};

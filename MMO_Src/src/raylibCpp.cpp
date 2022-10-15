@@ -110,11 +110,31 @@ Vec2 rayCpp::CreateVecByData( const std::string& data, const char delim )
     Vec2 v;
     std::stringstream ss( data );
     std::string s;
-    std::getline( ss, s, ' ' );
+    std::getline( ss, s, delim );
     v.x = std::stof( s );
-    std::getline( ss, s, ' ' );
+    std::getline( ss, s, delim );
     v.y = std::stof( s );
     return v;
+}
+RectF rayCpp::CreateRectFByData( const std::string& data, const char delim )
+{
+    RectF res{};
+    std::stringstream buff_c(data);
+    std::string token_c;
+    std::vector<float> angle_rect;
+    while ( std::getline( buff_c, token_c, delim ) && (token_c != "") )
+    {
+        angle_rect.push_back(std::stof(token_c));
+    }
+    res = RectF{ angle_rect[0], angle_rect[1], angle_rect[2], angle_rect[3] };
+    return res;
+}
+Vec2 rayCpp::MakePosNextStr( const Vec2& pos_str, const std::string& str, const int fontsize, const float distance )
+{
+    return Vec2{
+        pos_str.x + (int)MeasureText( str.c_str(), fontsize ) + distance,
+        pos_str.y
+    };
 }
 bool rayCpp::CheckCollidedRectCir( const RectF& rect, const Vec2& pos_cir, const float radius )
 {

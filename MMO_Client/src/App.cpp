@@ -8,6 +8,16 @@ App::App(const int fps)
     SetTargetFPS(fps);
 
     gui.LoadAsset();
+    tie::utils::AddThread(
+        tie::utils::MakeLoop<
+            std::unordered_map< uint32_t, sPlayerDescription >&,
+            std::unordered_map< uint32_t, sMapObjDesc >&,
+            float&
+        >, 
+        4000,tie::utils::TimerThread, 
+        std::ref(mapObjects), std::ref(mapDescObjs),
+        std::ref(tie::var::timerRPS)
+    );
 }
 App::~App() noexcept
 {
@@ -107,7 +117,7 @@ void App::Update()
             {
                 bWaitingForConnect = true;
                 //100 message in MessageIncoming queue
-                Connect( "192.168.19.107", 60000, 100 );
+                Connect( "127.0.0.1", 60000, 100 );
             }
         }
     }
@@ -167,6 +177,7 @@ void App::TwoPlayerGame()
             msg.header.id = GameMsg::Client_RegisterWithServer;
             msg << descPlayer;
             Send( msg );
+            gui.Btn_UpdateReadyState(false);
         } break;
 
         case GameMsg::Client_AssignID:
@@ -180,21 +191,9 @@ void App::TwoPlayerGame()
             sPlayerDescription desc;
             msg >> desc;
             mapObjects.insert_or_assign( desc.nUniqueID, desc );
-            if( mapObjects[nPlayerID].isHost )
-            {
-                std::cout << "Ban la Host" << std::endl;
-                mapObjects[nPlayerID].isReady = true;
-                gui.buttons[(int)GUI::Btn_SeqID::ReadyState].SetTitle( "Let' Go" );
-            }
-            else gui.Btn_UpdateReadyState(false);
             
-            sMapObjDesc mo_desc{};
-            mo_desc.dest = RectF{ 
-                Vec2{ 20.0f, 50.0f + (int)mapObjects.size()*30.0f }, 
-                (float)MeasureText( desc.name, 20 ), 20.0f
-            };
-            mo_desc.pos_chat = Vec2{ mo_desc.dest.right + 60.0f,mo_desc.dest.top };
-            mapDescObjs.insert_or_assign( desc.nUniqueID, mo_desc );
+            mapDescObjs.insert_or_assign( desc.nUniqueID, sMapObjDesc{} );
+            tie::make::MakeDescObjDest( mapObjects, mapDescObjs );
 
             if( desc.nUniqueID == nPlayerID ) bWaitingForConnect = false;
         } break;
@@ -205,14 +204,31 @@ void App::TwoPlayerGame()
             msg >> nRemovalID;
             mapObjects.erase( nRemovalID );
             mapDescObjs.erase( nRemovalID );
+            tie::make::MakeDescObjDest( mapObjects, mapDescObjs );
         } break;
 
         case GameMsg::Game_UpdatePlayer:
         {
             sPlayerDescription desc;
             msg >> desc;
-            mapObjects.insert_or_assign( desc.nUniqueID, desc );
+            
+            if( mapObjects.count( desc.nUniqueID ) )
+            {
+                if( std::strcmp(desc.name, mapObjects[desc.nUniqueID].name) != 0 )
+                {
+                    tie::make::MakeArrChar(
+                        mapObjects[desc.nUniqueID].name, tie::def::ml_name,
+                        desc.name
+                    );
+                    mapDescObjs[desc.nUniqueID].pos_chat = rayCpp::MakePosNextStr( 
+                        mapDescObjs[desc.nUniqueID].dest_name.topleft,
+                        mapObjects[desc.nUniqueID].name
+                    );
+                    std::cout << mapDescObjs[desc.nUniqueID].pos_chat.x << "-" << mapDescObjs[desc.nUniqueID].pos_chat.y << std::endl;
+                }
+            }
 
+            mapObjects.insert_or_assign( desc.nUniqueID, desc );
             std::cout 
                 << mapObjects[desc.nUniqueID].name << ": Update! " <<
             std::endl;
@@ -228,10 +244,16 @@ void App::TwoPlayerGame()
         {
             sPlayerText pMes;
             msg >> pMes;
-            mapDescObjs[pMes.nUniqueID].timerChat = pMes.timerChat;
-            mapDescObjs[pMes.nUniqueID].isTyping = false;
-            tie::make::MakeArrChar( mapDescObjs[pMes.nUniqueID].chat, tie::def::ml_chat, pMes.chat );
-            std::cout << mapObjects[pMes.nUniqueID].name << ": " << pMes.chat << std::endl;
+            if( mapObjects.count( pMes.nUniqueID ) )
+            {
+                if( mapDescObjs[pMes.nUniqueID].timerChat == 0.0f )
+                {
+                    mapDescObjs[pMes.nUniqueID].timerChat = pMes.timerChat;
+                }
+                mapDescObjs[pMes.nUniqueID].isTyping = false;
+                tie::make::MakeArrChar( mapDescObjs[pMes.nUniqueID].chat, tie::def::ml_chat, pMes.chat );
+                std::cout << mapObjects[pMes.nUniqueID].name << ": " << pMes.chat << std::endl;
+            }
         } break;
 
         case GameMsg::Server_RemoveHost:
@@ -253,9 +275,11 @@ void App::TwoPlayerGame()
         
         case GameMsg::Server_RPS_DoneUpdate: App::IPMT_GM_Server_RPS_DoneUpdate( msg ); break;
 
-        case GameMsg::Server_RPS_IDPlayer_Lose: App::IPMT_GM_Server_RPS_IDPlayer_Lose( msg ); break;
+        // case GameMsg::Server_RPS_AssignOrder: App::IPMT_GM_Server_RPS_AssignOrder( msg ); break;
+
+        // case GameMsg::Server_RPS_IDPlayer_Lose: App::IPMT_GM_Server_RPS_IDPlayer_Lose( msg ); break;
         
-        case GameMsg::Server_RPS_IDPlayer_Win: App::IPMT_GM_Server_RPS_IDPlayer_Win( msg ); break;
+        // case GameMsg::Server_RPS_IDPlayer_Win: App::IPMT_GM_Server_RPS_IDPlayer_Win( msg ); break;
 
         default: break;
         }
@@ -310,6 +334,12 @@ void App::ProcessInputBar()
             tie::make::MakeArrChar( mapObjects[nPlayerID].name, tie::def::ml_name,
                 gui.GetGameMod().input_value
             );
+            mapDescObjs[nPlayerID].pos_chat = rayCpp::MakePosNextStr( 
+                mapDescObjs[nPlayerID].dest_name.topleft,
+                mapObjects[nPlayerID].name
+            );
+            
+            std::cout << mapDescObjs[nPlayerID].pos_chat.x << "-" << mapDescObjs[nPlayerID].pos_chat.y << std::endl;
             descPlayer.isUpdateWithEveryOne = true;
         }
         else if( gui.GetGameMod().input_owner == GUI::Btn_SeqID::Chat )
@@ -317,7 +347,6 @@ void App::ProcessInputBar()
             tie::make::MakeArrChar( mapDescObjs[nPlayerID].chat, tie::def::ml_chat,
                 gui.GetGameMod().input_value 
             );
-            mapDescObjs[nPlayerID].timerChat = 6.0f;
             Send( tie::make::MM_PR_Chat( nPlayerID, gui.GetGameMod().input_value ) );
         }
         gui.ClearInputValue();
@@ -337,16 +366,14 @@ void App::ProcessBtns()
     //Event BTN_ReadyState
     if( gui.IsBtnClick( GUI::Btn_SeqID::ReadyState ) )
     {
-        descPlayer.isUpdateWithEveryOne = true;
+        // descPlayer.isUpdateWithEveryOne = true;
         mapObjects[nPlayerID].isReady = !mapObjects[nPlayerID].isReady;
         if( !mapObjects[nPlayerID].isHost )
         {
             gui.Btn_UpdateReadyState( mapObjects[nPlayerID].isReady );
-        }
-        else
-        {
             tie::net::message<GameMsg> msg;
             msg.header.id = GameMsg::RPSGame;
+            msg << mapObjects[nPlayerID].isReady;
             Send( msg );
         }
     }
@@ -357,20 +384,24 @@ void App::UpdateDuringTimerRPSGame()
 {
     if( tie::var::timerRPS > 0.0f )
     {
-        if( IsKeyPressed( KEY_LEFT ) )
+        if( tie::var::timerRPS <= 5.0f )
         {
-            Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Rock ) );
-            std::cout << "Your choice is Rock" << std::endl;
-        }
-        else if( IsKeyPressed( KEY_UP ) )
-        {
-            Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Paper ) );
-            std::cout << "Your choice is Paper" << std::endl;
-        }
-        else if( IsKeyPressed( KEY_RIGHT ) )
-        {
-            Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Scissor ) );
-            std::cout << "Your choice is Scissor" << std::endl;
+            gui.rpsGame.sub_desc.time = tie::var::timerRPS;
+            if( gui.rpsGame.IsBtnClick( GUI::RPSGame::SeqID_Btn::Rock ) )
+            {
+                Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Rock ) );
+                // gui.rpsGame.SetSubDesc("Your choice is Rock");
+            }
+            else if( gui.rpsGame.IsBtnClick( GUI::RPSGame::SeqID_Btn::Paper ) )
+            {
+                Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Paper ) );
+                // gui.rpsGame.SetSubDesc("Your choice is Paper");
+            }
+            else if( gui.rpsGame.IsBtnClick( GUI::RPSGame::SeqID_Btn::Scissor ) )
+            {
+                Send( tie::make::MM_PR_RPSGame_Choose( sRPSGame::Options::Scissor ) );
+                // gui.rpsGame.SetSubDesc("Your choice is Scissor");
+            }
         }
     }
 }
@@ -381,9 +412,10 @@ void App::UpdateByEveryOne()
     for( auto it = mapObjects.begin(); it != mapObjects.end(); it++ )
     {
         //Desc
-        sMapObjDesc& mo_desc = mapDescObjs[it->second.nUniqueID];
+        // sMapObjDesc& mo_desc = mapDescObjs[it->second.nUniqueID];
         //Update TimerChat
-        if( mo_desc.timerChat > 0.0f ) mo_desc.timerChat -= 0.01666f;
+        // if( mo_desc.timerChat > 0.0f ) mo_desc.timerChat -= 0.01666f;
+        // if( mo_desc.timerNotify > 0.0f ) mo_desc.timerNotify -= 0.01666f;
     }
     if( mapObjects[nPlayerID].isHost )
     {
